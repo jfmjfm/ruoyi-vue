@@ -26,7 +26,9 @@
            class="control-panel">
         <div class="panel-header">
           <span>{{ item.fullName }}</span>
-          <i class="el-icon-close" @click="closePanel"></i>
+          <div class="close-button" @click="closePanel">
+            <i class="el-icon-close"></i>
+          </div>
         </div>
         <div class="panel-content">
           <template v-if="index === 0">
@@ -35,7 +37,7 @@
               <el-input placeholder="搜索图层..." v-model="searchQuery" prefix-icon="el-icon-search"></el-input>
             </div>
             <div class="opacity-control">
-              <span>透明度</span>
+              <span>透明度的设定</span>
               <el-slider v-model="opacity" :min="0" :max="100"></el-slider>
             </div>
             <el-switch v-model="showLegend" active-text="图例"></el-switch>
@@ -149,9 +151,14 @@ export default {
 
 <style lang="scss" scoped>
 .dashboard-container {
-  position: relative;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   width: 100%;
-  height: calc(100vh - 84px); // 减去顶部导航栏(50px)和标签栏(34px)的高度
+  height: 100%;
+  overflow: hidden;
 }
 
 .map-container {
@@ -165,19 +172,20 @@ export default {
 }
 
 .function-menu {
-  position: fixed;
+  position: absolute;
   right: 0;
-  top: 84px;
-  height: calc(100vh - 84px);
+  top: 0;
+  bottom: 0;
   width: 50px;
   background: #34495e;
   z-index: 1000;
   display: flex;
   flex-direction: column;
-  padding-top: 20px;
+  padding-top: 5px;
+  justify-content: flex-start;
 
   .menu-item {
-    height: 70px;
+    height: 60px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -185,28 +193,51 @@ export default {
     cursor: pointer;
     color: #fff;
     transition: all 0.3s;
-    padding: 8px 0;
+    padding: 0;
+    margin-bottom: 8px;
+
+    &:first-child {
+      height: 60px;
+      padding: 0;
+    }
 
     &:hover {
       background: rgba(255, 255, 255, 0.1);
+      
+      i {
+        background-color: rgba(255, 255, 255, 0.3);
+      }
     }
 
     &.active {
       background: rgba(255, 255, 255, 0.2);
+      
+      i {
+        background-color: rgba(255, 255, 255, 0.4);
+      }
     }
 
     i {
-      font-size: 24px;
-      margin-bottom: 4px;
+      font-size: 20px;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background-color: rgba(255, 255, 255, 0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.3s;
+      margin-bottom: 3px;
     }
 
     .menu-title {
-      font-size: 12px;
+      font-size: 11px;
       text-align: center;
       line-height: 1.2;
+      width: 100%;
       
       div {
-        height: 14px; // 确保每行高度一致
+        height: 11px;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -216,14 +247,16 @@ export default {
 }
 
 .control-panel {
-  position: fixed;
-  top: 84px; // 从顶部导航栏和标签栏下方开始
+  position: absolute;
+  top: 0;
   right: 50px;
+  bottom: 0;
   width: 320px;
-  height: calc(100vh - 84px); // 减去顶部导航栏和标签栏的高度
   background: #fff;
   box-shadow: -2px 0 10px rgba(0,0,0,0.1);
   z-index: 999;
+  display: flex;
+  flex-direction: column;
 
   .panel-header {
     height: 50px;
@@ -235,19 +268,32 @@ export default {
     justify-content: space-between;
     align-items: center;
     font-size: 16px;
+    flex-shrink: 0;
 
-    i {
+    .close-button {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background-color: rgba(255, 255, 255, 0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
       cursor: pointer;
-      padding: 5px;
-      color: #fff;
+      transition: all 0.3s;
+      
+      i {
+        font-size: 16px;
+        color: #fff;
+      }
+      
       &:hover {
-        color: rgba(255, 255, 255, 0.8);
+        background-color: rgba(255, 255, 255, 0.3);
       }
     }
   }
 
   .panel-content {
-    height: calc(100% - 50px);
+    flex: 1;
     overflow-y: auto;
     padding: 15px;
 
