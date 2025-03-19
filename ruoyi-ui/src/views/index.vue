@@ -1,340 +1,209 @@
 <template>
-  <div class="dashboard-container">
-    <!-- 地图区域 -->
-    <div class="map-container">
-      <div id="map"></div>
-    </div>
+  <div class="app-container home">
+    <el-row :gutter="20">
+      <el-col :sm="24" :lg="12" style="padding-left: 20px">
+        <h2>若依后台管理框架</h2>
+        <p>
+          一直想做一款后台管理系统，看了很多优秀的开源项目但是发现没有合适自己的。于是利用空闲休息时间开始自己写一套后台系统。如此有了若依管理系统，她可以用于所有的Web应用程序，如网站管理后台，网站会员中心，CMS，CRM，OA等等，当然，您也可以对她进行深度定制，以做出更强系统。所有前端后台代码封装过后十分精简易上手，出错概率低。同时支持移动客户端访问。系统会陆续更新一些实用功能。
+        </p>
+        <p>
+          <b>当前版本:</b> <span>v{{ version }}</span>
+        </p>
+        <p>
+          <el-tag type="danger">&yen;免费开源</el-tag>
+        </p>
+        <p>
+          <el-button
+            type="primary"
+            size="mini"
+            icon="el-icon-cloudy"
+            plain
+            @click="goTarget('https://gitee.com/y_project/RuoYi-Vue')"
+            >访问码云</el-button
+          >
+          <el-button
+            size="mini"
+            icon="el-icon-s-home"
+            plain
+            @click="goTarget('http://ruoyi.vip')"
+            >访问主页</el-button
+          >
+        </p>
+      </el-col>
 
-    <!-- 功能菜单区域 -->
-    <div class="function-menu">
-      <div v-for="(item, index) in menuItems" :key="index" 
-           class="menu-item" 
-           @click="togglePanel(index)"
-           :class="{ active: activePanelIndex === index }">
-        <i :class="item.icon"></i>
-        <div class="menu-title">
-          <div>{{ item.nameTop }}</div>
-          <div>{{ item.nameBottom }}</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- 控制面板区域 -->
-    <transition-group name="panel">
-      <div v-for="(item, index) in menuItems" :key="index"
-           v-if="activePanelIndex === index"
-           class="control-panel">
-        <div class="panel-header">
-          <span>{{ item.fullName }}</span>
-          <div class="close-button" @click="closePanel">
-            <i class="el-icon-close"></i>
+      <el-col :sm="24" :lg="12" style="padding-left: 50px">
+        <el-row>
+          <el-col :span="12">
+            <h2>技术选型</h2>
+          </el-col>
+        </el-row>
+        <el-row>
+          <el-col :span="6">
+            <h4>后端技术</h4>
+            <ul>
+              <li>SpringBoot</li>
+              <li>Spring Security</li>
+              <li>JWT</li>
+              <li>MyBatis</li>
+              <li>Druid</li>
+              <li>Fastjson</li>
+              <li>...</li>
+            </ul>
+          </el-col>
+          <el-col :span="6">
+            <h4>前端技术</h4>
+            <ul>
+              <li>Vue</li>
+              <li>Vuex</li>
+              <li>Element-ui</li>
+              <li>Axios</li>
+              <li>Sass</li>
+              <li>Quill</li>
+              <li>...</li>
+            </ul>
+          </el-col>
+        </el-row>
+      </el-col>
+    </el-row>
+    <el-divider />
+    <el-row :gutter="20">
+      <el-col :xs="24" :sm="24" :md="12" :lg="8">
+        <el-card class="update-log">
+          <div slot="header" class="clearfix">
+            <span>联系信息</span>
           </div>
-        </div>
-        <div class="panel-content">
-          <template v-if="index === 0">
-            <!-- 图层控制面板 -->
-            <div class="search-box">
-              <el-input placeholder="搜索图层..." v-model="searchQuery" prefix-icon="el-icon-search"></el-input>
-            </div>
-            <div class="opacity-control">
-              <span>透明度的设定</span>
-              <el-slider v-model="opacity" :min="0" :max="100"></el-slider>
-            </div>
-            <el-switch v-model="showLegend" active-text="图例"></el-switch>
-            <div class="layer-list">
-              <el-collapse v-model="activeCategories">
-                <el-collapse-item v-for="category in categories" :key="category.name" :title="category.name">
-                  <!-- 图层列表将在这里展示 -->
-                </el-collapse-item>
-              </el-collapse>
-            </div>
-          </template>
-        </div>
-      </div>
-    </transition-group>
+          <div class="body">
+            <p>
+              <i class="el-icon-s-promotion"></i> 官网：<el-link
+                href="http://www.ruoyi.vip"
+                target="_blank"
+                >http://www.ruoyi.vip</el-link
+              >
+            </p>
+            <p>
+              <i class="el-icon-user-solid"></i> QQ群：<s> 满937441 </s> <s> 满887144332 </s>
+              <s> 满180251782 </s> <s> 满104180207 </s> <s> 满186866453 </s> <s> 满201396349 </s>
+              <s> 满101456076 </s> <s> 满101539465 </s> <s> 满264312783 </s> <s> 满167385320 </s> 
+              <s> 满104748341 </s> <s> 满160110482 </s> <s> 满170801498 </s> <s> 满108482800 </s> 
+              <s> 满101046199 </s> <s> 满136919097 </s> <s> 满143961921 </s> <s> 满174951577 </s> 
+              <s> 满161281055 </s> <s> 满138988063 </s> <s> 满151450850 </s> <s> 满224622315 </s>
+              <s> 满287842588 </s> <a href="http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=HKz42pk2zQ1WUMbbRo50-N7tY4IDKKrj&authKey=ukBg3edmUbnmoo40xZCo6R1tYdTglYJ1nBFRW9gTHuZwLI1r8wgFT6cWUrAldwcr&noverify=0&group_code=187944233" target="_blank">187944233</a>
+            </p>
+            <p>
+              <i class="el-icon-chat-dot-round"></i> 微信：<a
+                href="javascript:;"
+                >/ *若依</a
+              >
+            </p>
+            <p>
+              <i class="el-icon-money"></i> 支付宝：<a
+                href="javascript:;"
+                class="支付宝信息"
+                >/ *若依</a
+              >
+            </p>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :xs="24" :sm="24" :md="12" :lg="8">
+        <el-card class="update-log">
+          <div slot="header" class="clearfix">
+            <span>捐赠支持</span>
+          </div>
+          <div class="body">
+            <img
+              src="@/assets/images/pay.png"
+              alt="donate"
+              width="100%"
+            />
+            <span style="display: inline-block; height: 30px; line-height: 30px"
+              >你可以请作者喝杯咖啡表示鼓励</span
+            >
+          </div>
+        </el-card>
+      </el-col>
+    </el-row>
   </div>
 </template>
 
 <script>
-import 'ol/ol.css';
-import Map from 'ol/Map';
-import View from 'ol/View';
-import TileLayer from 'ol/layer/Tile';
-import OSM from 'ol/source/OSM';
-import { fromLonLat } from 'ol/proj';
-
 export default {
   name: "Index",
   data() {
     return {
-      map: null,
-      menuItems: [
-        { 
-          nameTop: '水源',
-          nameBottom: '涵养',
-          fullName: '水源涵养',
-          icon: 'el-icon-s-grid' 
-        },
-        { 
-          nameTop: '土壤',
-          nameBottom: '保持',
-          fullName: '土壤保持',
-          icon: 'el-icon-data-analysis' 
-        },
-        { 
-          nameTop: '防风',
-          nameBottom: '固沙',
-          fullName: '防风固沙',
-          icon: 'el-icon-s-tools' 
-        },
-        { 
-          nameTop: '洪水',
-          nameBottom: '调蓄',
-          fullName: '洪水调蓄',
-          icon: 'el-icon-download' 
-        },
-        { 
-          nameTop: '水质',
-          nameBottom: '净化',
-          fullName: '水质净化',
-          icon: 'el-icon-s-flag' 
-        }
-      ],
-      activePanelIndex: null,
-      // 图层控制相关数据
-      searchQuery: '',
-      opacity: 100,
-      showLegend: false,
-      activeCategories: ['1'],
-      categories: [
-        { name: 'Biodiversity and Nature Conservation' },
-        { name: 'Climate' },
-        { name: 'Elevation and Depth' },
-        { name: 'Geology and Soils' },
-        { name: 'Land Cover and Land Use' },
-        { name: 'Orthoimagery' },
-        { name: 'Population Distribution' }
-      ]
+      // 版本号
+      version: "3.8.9"
     };
   },
-  mounted() {
-    this.initMap();
-  },
   methods: {
-    initMap() {
-      this.map = new Map({
-        target: 'map',
-        layers: [
-          new TileLayer({
-            source: new OSM()
-          })
-        ],
-        view: new View({
-          center: fromLonLat([116.397428, 39.90923]), // 北京坐标
-          zoom: 7
-        })
-      });
-    },
-    togglePanel(index) {
-      if (this.activePanelIndex === index) {
-        this.activePanelIndex = null;
-      } else {
-        this.activePanelIndex = index;
-      }
-    },
-    closePanel() {
-      this.activePanelIndex = null;
+    goTarget(href) {
+      window.open(href, "_blank");
     }
   }
 };
 </script>
 
-<style lang="scss" scoped>
-.dashboard-container {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-}
-
-.map-container {
-  width: 100%;
-  height: 100%;
-  
-  #map {
-    width: 100%;
-    height: 100%;
+<style scoped lang="scss">
+.home {
+  blockquote {
+    padding: 10px 20px;
+    margin: 0 0 20px;
+    font-size: 17.5px;
+    border-left: 5px solid #eee;
   }
-}
+  hr {
+    margin-top: 20px;
+    margin-bottom: 20px;
+    border: 0;
+    border-top: 1px solid #eee;
+  }
+  .col-item {
+    margin-bottom: 20px;
+  }
 
-.function-menu {
-  position: absolute;
-  right: 0;
-  top: 0;
-  bottom: 0;
-  width: 50px;
-  background: #34495e;
-  z-index: 1000;
-  display: flex;
-  flex-direction: column;
-  padding-top: 5px;
-  justify-content: flex-start;
-
-  .menu-item {
-    height: 60px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    color: #fff;
-    transition: all 0.3s;
+  ul {
     padding: 0;
-    margin-bottom: 8px;
-
-    &:first-child {
-      height: 60px;
-      padding: 0;
-    }
-
-    &:hover {
-      background: rgba(255, 255, 255, 0.1);
-      
-      i {
-        background-color: rgba(255, 255, 255, 0.3);
-      }
-    }
-
-    &.active {
-      background: rgba(255, 255, 255, 0.2);
-      
-      i {
-        background-color: rgba(255, 255, 255, 0.4);
-      }
-    }
-
-    i {
-      font-size: 20px;
-      width: 36px;
-      height: 36px;
-      border-radius: 50%;
-      background-color: rgba(255, 255, 255, 0.2);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: all 0.3s;
-      margin-bottom: 3px;
-    }
-
-    .menu-title {
-      font-size: 11px;
-      text-align: center;
-      line-height: 1.2;
-      width: 100%;
-      
-      div {
-        height: 11px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-    }
+    margin: 0;
   }
-}
 
-.control-panel {
-  position: absolute;
-  top: 0;
-  right: 50px;
-  bottom: 0;
-  width: 320px;
-  background: #fff;
-  box-shadow: -2px 0 10px rgba(0,0,0,0.1);
-  z-index: 999;
-  display: flex;
-  flex-direction: column;
+  font-family: "open sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 13px;
+  color: #676a6c;
+  overflow-x: hidden;
 
-  .panel-header {
-    height: 50px;
-    padding: 0 15px;
-    background: #34495e;
-    color: #fff;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 16px;
-    flex-shrink: 0;
+  ul {
+    list-style-type: none;
+  }
 
-    .close-button {
-      width: 24px;
-      height: 24px;
-      border-radius: 50%;
-      background-color: rgba(255, 255, 255, 0.2);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      transition: all 0.3s;
-      
-      i {
-        font-size: 16px;
-        color: #fff;
-      }
-      
-      &:hover {
-        background-color: rgba(255, 255, 255, 0.3);
-      }
+  h4 {
+    margin-top: 0px;
+  }
+
+  h2 {
+    margin-top: 10px;
+    font-size: 26px;
+    font-weight: 100;
+  }
+
+  p {
+    margin-top: 10px;
+
+    b {
+      font-weight: 700;
     }
   }
 
-  .panel-content {
-    flex: 1;
-    overflow-y: auto;
-    padding: 15px;
-
-    &::-webkit-scrollbar {
-      width: 6px;
-    }
-
-    &::-webkit-scrollbar-thumb {
-      background: #ccc;
-      border-radius: 3px;
-    }
-
-    &::-webkit-scrollbar-track {
-      background: #f5f5f5;
-    }
-
-    .search-box {
-      margin-bottom: 15px;
-    }
-
-    .opacity-control {
-      margin: 15px 0;
-      span {
-        display: block;
-        margin-bottom: 5px;
-      }
-    }
-
-    .layer-list {
-      margin-top: 15px;
+  .update-log {
+    ol {
+      display: block;
+      list-style-type: decimal;
+      margin-block-start: 1em;
+      margin-block-end: 1em;
+      margin-inline-start: 0;
+      margin-inline-end: 0;
+      padding-inline-start: 40px;
     }
   }
-}
-
-// 面板动画
-.panel-enter-active, .panel-leave-active {
-  transition: all 0.3s ease;
-}
-.panel-enter, .panel-leave-to {
-  opacity: 0;
-  transform: translateX(30px);
 }
 </style>
 

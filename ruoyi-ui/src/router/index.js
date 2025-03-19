@@ -70,7 +70,7 @@ export const constantRoutes = [
         path: 'index',
         component: () => import('@/views/index'),
         name: 'Index',
-        meta: { title: '首页', icon: 'dashboard', affix: true }
+        meta: { title: '主页', icon: 'cascader', affix: true }
       }
     ]
   },
@@ -85,6 +85,18 @@ export const constantRoutes = [
         component: () => import('@/views/system/user/profile/index'),
         name: 'Profile',
         meta: { title: '个人中心', icon: 'user' }
+      }
+    ]
+  },
+  {
+    path: '/project',
+    component: Layout,
+    children: [
+      {
+        path: 'gis',
+        component: () => import('@/views/project/gis/index'),
+        name: 'GIS',
+        meta: { title: 'GIS地图', icon: 'map' }
       }
     ]
   }

@@ -103,6 +103,13 @@
           <el-button
             size="mini"
             type="text"
+            icon="el-icon-map-location" 
+            @click="handleGIS(scope.row)"
+            v-hasPermi="['project:student:query']"
+          >GIS定位</el-button>
+          <el-button
+            size="mini"
+            type="text"
             icon="el-icon-edit"
             @click="handleUpdate(scope.row)"
             v-hasPermi="['project:student:edit']"
@@ -152,6 +159,36 @@
         <el-button @click="cancel">取 消</el-button>
       </div>
     </el-dialog>
+
+    <!-- 查看学生详细信息对话框 -->
+    <el-dialog title="学生详细信息" :visible.sync="openView" width="500px" append-to-body>
+      <el-form ref="viewForm" :model="form" label-width="100px">
+        <el-form-item label="学生编号">
+          <span>{{ form.studentId }}</span>
+        </el-form-item>
+        <el-form-item label="学生名称">
+          <span>{{ form.studentName }}</span>
+        </el-form-item>
+        <el-form-item label="年龄">
+          <span>{{ form.studentAge }}</span>
+        </el-form-item>
+        <el-form-item label="爱好">
+          <span>{{ form.studentHobby }}</span>
+        </el-form-item>
+        <el-form-item label="性别">
+          <span>{{ form.studentSex === '0' ? '男' : form.studentSex === '1' ? '女' : '未知' }}</span>
+        </el-form-item>
+        <el-form-item label="状态">
+          <span>{{ form.studentStatus === '0' ? '正常' : '停用' }}</span>
+        </el-form-item>
+        <el-form-item label="生日">
+          <span>{{ parseTime(form.studentBirthday, '{y}-{m}-{d}') }}</span>
+        </el-form-item>
+      </el-form>
+      <div slot="footer" class="dialog-footer">
+        <el-button @click="openView = false">关 闭</el-button>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -180,6 +217,8 @@ export default {
       title: "",
       // 是否显示弹出层
       open: false,
+      // 是否显示查看弹出层
+      openView: false,
       // 查询参数
       queryParams: {
         pageNum: 1,
@@ -296,6 +335,19 @@ export default {
       this.download('project/student/export', {
         ...this.queryParams
       }, `student_${new Date().getTime()}.xlsx`)
+    },
+    /** GIS定位按钮操作 */
+    handleGIS(row) {
+      const studentId = row.studentId;
+      
+      // 方法1：直接使用正确的路由路径
+      this.$router.push({
+        path: '/project/gis', // 修改为实际的路由路径，去掉 /index
+        query: {
+          studentId: studentId,
+          studentName: row.studentName
+        }
+      });
     }
   }
 };
