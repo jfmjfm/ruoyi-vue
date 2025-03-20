@@ -60,7 +60,7 @@
             <groupId>com.ruoyi</groupId>
             <artifactId>ruoyi-generator</artifactId>
         </dependency>
-        <!-- 通用工具-->
+        <!-- 项目管理-->
         <dependency>
             <groupId>com.ruoyi</groupId>
             <artifactId>ruoyi-project</artifactId>

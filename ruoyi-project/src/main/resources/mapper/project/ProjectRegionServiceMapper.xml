@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.project.mapper.ProjectRegionServiceMapper">
+    
+    <resultMap type="ProjectRegionService" id="ProjectRegionServiceResult">
+        <result property="id"    column="id"    />
+        <result property="regionId"    column="region_id"    />
+        <result property="serviceType"    column="service_type"    />
+    </resultMap>
+
+    <sql id="selectProjectRegionServiceVo">
+        select id, region_id, service_type from project_region_service
+    </sql>
+
+    <select id="selectProjectRegionServiceList" parameterType="ProjectRegionService" resultMap="ProjectRegionServiceResult">
+        <include refid="selectProjectRegionServiceVo"/>
+        <where>  
+            <if test="regionId != null "> and region_id = #{regionId}</if>
+            <if test="serviceType != null  and serviceType != ''"> and service_type = #{serviceType}</if>
+        </where>
+    </select>
+    
+    <select id="selectProjectRegionServiceById" parameterType="Long" resultMap="ProjectRegionServiceResult">
+        <include refid="selectProjectRegionServiceVo"/>
+        where id = #{id}
+    </select>
+
+    <insert id="insertProjectRegionService" parameterType="ProjectRegionService" useGeneratedKeys="true" keyProperty="id">
+        insert into project_region_service
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="regionId != null">region_id,</if>
+            <if test="serviceType != null and serviceType != ''">service_type,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="regionId != null">#{regionId},</if>
+            <if test="serviceType != null and serviceType != ''">#{serviceType},</if>
+         </trim>
+    </insert>
+
+    <update id="updateProjectRegionService" parameterType="ProjectRegionService">
+        update project_region_service
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="regionId != null">region_id = #{regionId},</if>
+            <if test="serviceType != null and serviceType != ''">service_type = #{serviceType},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteProjectRegionServiceById" parameterType="Long">
+        delete from project_region_service where id = #{id}
+    </delete>
+
+    <delete id="deleteProjectRegionServiceByIds" parameterType="String">
+        delete from project_region_service where id in 
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+</mapper>

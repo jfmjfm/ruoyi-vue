@@ -1,0 +1,44 @@
+import request from '@/utils/request'
+
+// 查询项目区域列表
+export function listProject_region(query) {
+  return request({
+    url: '/project/project_region/list',
+    method: 'get',
+    params: query
+  })
+}
+
+// 查询项目区域详细
+export function getProject_region(id) {
+  return request({
+    url: '/project/project_region/' + id,
+    method: 'get'
+  })
+}
+
+// 新增项目区域
+export function addProject_region(data) {
+  return request({
+    url: '/project/project_region',
+    method: 'post',
+    data: data
+  })
+}
+
+// 修改项目区域
+export function updateProject_region(data) {
+  return request({
+    url: '/project/project_region',
+    method: 'put',
+    data: data
+  })
+}
+
+// 删除项目区域
+export function delProject_region(id) {
+  return request({
+    url: '/project/project_region/' + id,
+    method: 'delete'
+  })
+}

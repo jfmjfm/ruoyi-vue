@@ -182,14 +182,7 @@ export default {
     };
   },
   created() {
-    // 获取路由参数
-    if (this.$route.query.studentId) {
-      this.studentInfo.studentId = this.$route.query.studentId;
-      this.studentInfo.studentName = this.$route.query.studentName || '未知姓名';
-      
-      // 根据学生ID查询完整信息
-      this.fetchStudentDetail();
-    }
+    // 其他初始化逻辑...
   },
   mounted() {
     this.initMap();
@@ -236,6 +229,19 @@ export default {
     },
     closePanel() {
       this.activePanelIndex = null;
+    }
+  },
+  watch: {
+    // 监听路由参数变化
+    '$route.query.studentId': {
+      handler(newVal) {
+        if (newVal) {
+          this.studentInfo.studentId = newVal;
+          this.studentInfo.studentName = this.$route.query.studentName || '未知姓名';
+          this.fetchStudentDetail();
+        }
+      },
+      immediate: true // 确保组件创建时也会执行一次
     }
   }
 };
