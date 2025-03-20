@@ -140,7 +140,20 @@
 </template>
 
 <script>
-import { listProject_region, getProject_region, addProject_region, updateProject_region, delProject_region } from "@/api/project/project_region";
+import { 
+  listProject_region, 
+  getProject_region, 
+  addProject_region, 
+  updateProject_region, 
+  delProject_region
+} from "@/api/project/project_region";
+
+import {
+  listProject_region_service,
+  getProject_region_service,
+  addProject_region_service,
+  delProject_region_service
+} from "@/api/project/project_region_service";
 
 export default {
   name: "Region",
@@ -409,23 +422,257 @@ export default {
           delete submitForm.baseDescription;
           
           if (this.form.id != null) {
+            // 修改项目区域
             updateProject_region(submitForm).then(response => {
-              this.$modal.msgSuccess("修改成功");
-              this.open = false;
-              this.getList();
+              if (response && response.code === 200) {
+                console.log("项目区域基本信息更新成功，开始更新服务类型关联...");
+                
+                // 更新成功后，继续更新服务类型关联
+                this.updateRegionServiceRelations(this.form.id, this.form.serviceTypes).then(relationResponse => {
+                  if (relationResponse.success) {
+                    this.$modal.msgSuccess("修改成功");
+                    this.open = false;
+                    this.getList();
+                  } else if (relationResponse.partial) {
+                    this.$modal.msgWarning("部分服务类型关联更新成功，请检查以下错误: " + relationResponse.errors.map(e => e.message).join(", "));
+                    this.open = false;
+                    this.getList();
+                  }
+                }).catch(error => {
+                  console.error("更新服务类型关联失败:", error);
+                  this.$modal.msgWarning("项目区域基本信息已更新，但服务类型关联更新失败");
+                  this.open = false;
+                  this.getList();
+                });
+              } else {
+                this.$modal.msgError(response?.msg || "修改项目区域失败");
+              }
             }).catch(error => {
+              console.error("修改项目区域失败:", error);
               this.$modal.msgError("修改失败: " + (error.message || "未知错误"));
             });
           } else {
+            // 新增项目区域
             addProject_region(submitForm).then(response => {
-              this.$modal.msgSuccess("新增成功");
-              this.open = false;
-              this.getList();
+              console.log("新增项目区域响应:", response);
+              
+              if (response && response.code === 200) {
+                // 保存新增区域名称，用于后续查询
+                const newRegionName = this.form.regionName;
+                const newServiceTypes = [...this.form.serviceTypes]; // 复制一份以防后续表单重置
+                
+                // 先关闭对话框并刷新列表
+                this.$modal.msgSuccess("新增成功，正在关联服务类型...");
+                this.open = false;
+                
+                // 刷新列表后，立即查询新添加的记录
+                this.getList();
+                
+                // 等待列表刷新后，查询新添加的记录
+                setTimeout(() => {
+                  // 构造查询条件，根据区域名称查询
+                  const query = {
+                    regionName: newRegionName,
+                    pageSize: 10, // 限制结果数量
+                    pageNum: 1
+                  };
+                  
+                  console.log("查询新添加区域:", query);
+                  
+                  // 使用列表查询API查询新添加的记录
+                  listProject_region(query).then(queryResponse => {
+                    console.log("查询结果:", queryResponse);
+                    
+                    if (queryResponse && queryResponse.code === 200 && queryResponse.rows && queryResponse.rows.length > 0) {
+                      // 假设最新添加的记录会排在最前面
+                      // 如果有多条同名记录，可能需要根据创建时间等条件进一步筛选
+                      const latestRegion = queryResponse.rows[0];
+                      console.log("找到最新添加的区域:", latestRegion);
+                      
+                      if (latestRegion.id) {
+                        // 首先查询是否已有关联
+                        const query = { regionId: latestRegion.id };
+                        
+                        this.listProject_region_service(query).then(relationResponse => {
+                          const existingRelations = relationResponse.rows || [];
+                          const existingTypes = existingRelations.map(r => String(r.serviceType));
+                          
+                          // 找出需要添加的服务类型（排除已存在的）
+                          const toAdd = newServiceTypes.filter(type => !existingTypes.includes(String(type)));
+                          
+                          if (toAdd.length === 0) {
+                            this.$modal.msgSuccess("服务类型关联已存在，无需创建");
+                            this.getList();
+                            return;
+                          }
+                          
+                          // 逐个添加服务类型关联，避免并发问题
+                          toAdd.reduce((chain, type) => {
+                            return chain.then(() => {
+                              const data = {
+                                regionId: latestRegion.id,
+                                serviceType: String(type)
+                              };
+                              console.log("添加关联:", data);
+                              
+                              return this.addProject_region_service(data)
+                                .then(res => {
+                                  console.log("关联添加成功:", type);
+                                  return res;
+                                })
+                                .catch(error => {
+                                  // 如果是唯一约束错误，忽略它
+                                  if (error.response && 
+                                      error.response.data && 
+                                      error.response.data.includes("Duplicate entry")) {
+                                    console.warn("关联已存在，忽略错误:", type);
+                                    return { ignored: true, type };
+                                  }
+                                  console.error("添加关联失败:", error);
+                                  return { error: true, type, message: error.message };
+                                });
+                            });
+                          }, Promise.resolve())
+                          .then(() => {
+                            this.$modal.msgSuccess("服务类型关联已创建");
+                            this.getList();
+                          })
+                          .catch(error => {
+                            this.$modal.msgWarning("部分服务类型关联创建失败");
+                            this.getList();
+                          });
+                        }).catch(error => {
+                          console.error("查询现有关联失败:", error);
+                          this.$modal.msgWarning("无法查询现有关联，创建可能重复");
+                          
+                          // 继续执行原有的添加逻辑...
+                        });
+                      } else {
+                        this.$modal.msgWarning("找到新区域记录，但ID无效");
+                      }
+                    } else {
+                      this.$modal.msgWarning("未找到新添加的区域记录，请手动关联服务类型");
+                    }
+                  }).catch(error => {
+                    console.error("查询新添加区域失败:", error);
+                    this.$modal.msgError("查询新添加区域失败: " + (error.message || "未知错误"));
+                  });
+                }, 500); // 延迟500毫秒，确保列表已刷新
+              } else {
+                this.$modal.msgError(response?.msg || "新增失败");
+              }
             }).catch(error => {
+              console.error("新增项目区域失败:", error);
               this.$modal.msgError("新增失败: " + (error.message || "未知错误"));
             });
           }
         }
+      });
+    },
+    /**
+     * 更新区域与服务类型的关联关系
+     * @param {number} regionId - 区域ID
+     * @param {Array} serviceTypes - 服务类型数组
+     * @returns {Promise} - Promise对象
+     */
+    updateRegionServiceRelations(regionId, serviceTypes) {
+      if (!regionId || !serviceTypes || !Array.isArray(serviceTypes)) {
+        return Promise.reject(new Error("参数无效"));
+      }
+      
+      console.log("开始更新区域服务类型关联，区域ID:", regionId, "服务类型:", serviceTypes);
+      
+      // 先查询现有关联
+      return new Promise((resolve, reject) => {
+        // 使用已存在的查询API
+        const query = { regionId: regionId };
+        
+        // 使用API获取现有关联
+        this.listProject_region_service(query).then(response => {
+          const existingRelations = response.rows || [];
+          console.log("现有关联关系:", existingRelations);
+          
+          // 获取唯一服务类型
+          const uniqueServiceTypes = [...new Set(serviceTypes)].map(t => String(t));
+          console.log("待添加的服务类型:", uniqueServiceTypes);
+          
+          // 找出需要删除的关联
+          const toDelete = existingRelations.filter(relation => 
+            !uniqueServiceTypes.includes(String(relation.serviceType))
+          );
+          
+          // 找出需要添加的服务类型 - 过滤掉已经存在的关联
+          const existingTypes = existingRelations.map(relation => String(relation.serviceType));
+          const toAdd = uniqueServiceTypes.filter(type => !existingTypes.includes(type));
+          
+          console.log("需要删除的关联:", toDelete);
+          console.log("需要添加的服务类型:", toAdd);
+          
+          // 如果没有需要变更的内容，直接返回成功
+          if (toDelete.length === 0 && toAdd.length === 0) {
+            console.log("无需更新服务类型关联");
+            this.$modal.msgSuccess("服务类型关联已是最新");
+            resolve({ success: true, unchanged: true });
+            return;
+          }
+          
+          // 执行删除操作
+          const deletePromises = toDelete.length > 0 
+            ? toDelete.map(relation => 
+                this.delProject_region_service(relation.id).catch(error => {
+                  console.error("删除关联失败:", error);
+                  return { error: true, id: relation.id };
+                })
+              )
+            : [Promise.resolve()];
+          
+          // 执行添加操作 - 逐个添加以便于错误处理
+          Promise.all(deletePromises)
+            .then(() => {
+              console.log("删除操作完成，开始添加新关联");
+              
+              // 使用顺序执行而不是并行，以避免竞态条件
+              return toAdd.reduce((chain, type) => {
+                return chain.then(() => {
+                  const data = {
+                    regionId: Number(regionId),
+                    serviceType: String(type)
+                  };
+                  console.log("添加关联:", data);
+                  
+                  return this.addProject_region_service(data)
+                    .then(res => {
+                      console.log("关联添加成功:", type);
+                      return res;
+                    })
+                    .catch(error => {
+                      // 如果是唯一约束错误，忽略它（意味着关联已存在）
+                      if (error.response && 
+                          error.response.data && 
+                          error.response.data.includes("Duplicate entry")) {
+                        console.warn("关联已存在，忽略错误:", type);
+                        return { ignored: true, type };
+                      }
+                      console.error("添加关联失败:", error);
+                      return { error: true, type, message: error.message };
+                    });
+                });
+              }, Promise.resolve());
+            })
+            .then(results => {
+              this.$modal.msgSuccess("服务类型关联更新成功");
+              resolve({ success: true });
+            })
+            .catch(error => {
+              console.error("关联更新失败:", error);
+              this.$modal.msgError("服务类型关联更新失败");
+              reject(error);
+            });
+        }).catch(error => {
+          console.error("查询现有关联失败:", error);
+          this.$modal.msgError("查询现有服务类型关联失败");
+          reject(error);
+        });
       });
     },
     /** 删除按钮操作 */
@@ -493,8 +740,20 @@ export default {
     },
     // 修改刷新按钮的处理方法
     refreshServiceTypes() {
-      this.$modal.msgInfo("正在刷新服务类型数据...");
+      this.$modal.alert("正在刷新服务类型数据...");
       this.loadServiceTypes();
+    },
+    // 添加以下方法使API函数在组件中可用
+    listProject_region_service(query) {
+      return listProject_region_service(query);
+    },
+    
+    addProject_region_service(data) {
+      return addProject_region_service(data);
+    },
+    
+    delProject_region_service(id) {
+      return delProject_region_service(id);
     }
   }
 };
