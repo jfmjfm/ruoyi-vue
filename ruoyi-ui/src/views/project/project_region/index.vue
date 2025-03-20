@@ -462,7 +462,7 @@ export default {
                 const newServiceTypes = [...this.form.serviceTypes]; // 复制一份以防后续表单重置
                 
                 // 先关闭对话框并刷新列表
-                this.$modal.msgSuccess("新增成功，正在关联服务类型...");
+                //this.$modal.msgSuccess("新增成功，正在关联服务类型...");
                 this.open = false;
                 
                 // 刷新列表后，立即查询新添加的记录
@@ -501,7 +501,7 @@ export default {
                           const toAdd = newServiceTypes.filter(type => !existingTypes.includes(String(type)));
                           
                           if (toAdd.length === 0) {
-                            this.$modal.msgSuccess("服务类型关联已存在，无需创建");
+                            this.$modal.msgSuccess("新增成功");
                             this.getList();
                             return;
                           }
@@ -660,7 +660,7 @@ export default {
               }, Promise.resolve());
             })
             .then(results => {
-              this.$modal.msgSuccess("服务类型关联更新成功");
+              //this.$modal.msgSuccess("服务类型关联更新成功");
               resolve({ success: true });
             })
             .catch(error => {
