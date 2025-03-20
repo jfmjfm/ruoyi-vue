@@ -109,30 +109,32 @@
 
     <!-- 添加或修改项目区域对话框 -->
     <el-dialog :title="title" :visible.sync="open" width="500px" append-to-body>
-      <el-form ref="form" :model="form" :rules="rules" label-width="100px">
-        <el-form-item label="区域名称" prop="regionName">
-          <el-input v-model="form.regionName" placeholder="请输入区域名称" />
-        </el-form-item>
-        <el-form-item label="服务类型" prop="serviceTypes">
-          <el-checkbox-group v-model="form.serviceTypes" @change="updateDescription">
-            <el-checkbox
-              v-for="dict in serviceTypeOptions"
-              :key="dict.dictValue"
-              :label="dict.dictValue"
-            >{{ dict.dictLabel }}</el-checkbox>
-          </el-checkbox-group>
-        </el-form-item>
-        <el-form-item label="已选服务" prop="description">
-          <el-input 
-            v-model="form.description" 
-            type="textarea" 
-            placeholder="请输入服务类型" 
-            readonly 
-          />
-        </el-form-item>
-      </el-form>
+      <div v-loading="formLoading" element-loading-text="正在处理...">
+        <el-form ref="form" :model="form" :rules="rules" label-width="100px">
+          <el-form-item label="区域名称" prop="regionName">
+            <el-input v-model="form.regionName" placeholder="请输入区域名称" />
+          </el-form-item>
+          <el-form-item label="服务类型" prop="serviceTypes">
+            <el-checkbox-group v-model="form.serviceTypes" @change="updateDescription">
+              <el-checkbox
+                v-for="dict in serviceTypeOptions"
+                :key="dict.dictValue"
+                :label="dict.dictValue"
+              >{{ dict.dictLabel }}</el-checkbox>
+            </el-checkbox-group>
+          </el-form-item>
+          <el-form-item label="已选服务" prop="description">
+            <el-input 
+              v-model="form.description" 
+              type="textarea" 
+              placeholder="请输入服务类型" 
+              readonly 
+            />
+          </el-form-item>
+        </el-form>
+      </div>
       <div slot="footer" class="dialog-footer">
-        <el-button type="primary" @click="submitForm">确 定</el-button>
+        <el-button type="primary" :loading="submitLoading" @click="submitForm">确 定</el-button>
         <el-button @click="cancel">取 消</el-button>
       </div>
     </el-dialog>
@@ -145,7 +147,9 @@ import {
   getProject_region, 
   addProject_region, 
   updateProject_region, 
-  delProject_region
+  delProject_region,
+  batchAddRegionServices,
+  updateRegionWithServices
 } from "@/api/project/project_region";
 
 import {
@@ -202,7 +206,12 @@ export default {
         ]
       },
       // 新增的监听器
-      isUpdatingDescription: false
+      isUpdatingDescription: false,
+      submitting: false, // 防止重复提交
+      searchTimer: null, // 搜索防抖定时器
+      submitTimer: null, // 提交防抖定时器
+      submitLoading: false, // 提交按钮加载状态
+      formLoading: false,
     };
   },
   created() {
@@ -265,8 +274,13 @@ export default {
     },
     /** 搜索按钮操作 */
     handleQuery() {
-      this.queryParams.pageNum = 1;
-      this.getList();
+      if (this.searchTimer) {
+        clearTimeout(this.searchTimer);
+      }
+      this.searchTimer = setTimeout(() => {
+        this.queryParams.pageNum = 1;
+        this.getList();
+      }, 300); // 300ms防抖
     },
     /** 重置按钮操作 */
     resetQuery() {
@@ -406,274 +420,264 @@ export default {
     },
     /** 提交按钮 */
     submitForm() {
-      // 先检查服务类型是否选择
-      if (!this.form.serviceTypes || this.form.serviceTypes.length === 0) {
-        this.$modal.msgError("请至少选择一项服务类型");
-        return;
+      if (this.submitTimer) {
+        clearTimeout(this.submitTimer);
       }
-      
+      this.submitTimer = setTimeout(() => {
+        this._submitForm();
+      }, 100);
+    },
+    /**
+     * 实际的提交表单方法
+     */
+    _submitForm() {
+      // 表单验证
       this.$refs["form"].validate(valid => {
-        if (valid) {
-          // 提交前更新描述
-          this.updateDescription();
+        if (!valid) return;
+        
+        if (this.submitting) {
+          return; // 防止重复提交
+        }
+        
+        // 设置提交状态和按钮加载
+        this.submitting = true;
+        this.submitLoading = true;
+        
+        // 提交前更新描述
+        this.updateDescription();
+        
+        // 处理提交逻辑
+        if (this.form.id != null) {
+          // 修改项目区域
+          console.log(`[${new Date().toISOString()}] 开始更新项目区域:`, this.form.id);
           
-          // 移除临时字段，不提交到后端
-          const submitForm = {...this.form};
-          delete submitForm.baseDescription;
-          
-          if (this.form.id != null) {
-            // 修改项目区域
-            updateProject_region(submitForm).then(response => {
-              if (response && response.code === 200) {
-                console.log("项目区域基本信息更新成功，开始更新服务类型关联...");
-                
-                // 更新成功后，继续更新服务类型关联
-                this.updateRegionServiceRelations(this.form.id, this.form.serviceTypes).then(relationResponse => {
-                  if (relationResponse.success) {
-                    this.$modal.msgSuccess("修改成功");
-                    this.open = false;
-                    this.getList();
-                  } else if (relationResponse.partial) {
-                    this.$modal.msgWarning("部分服务类型关联更新成功，请检查以下错误: " + relationResponse.errors.map(e => e.message).join(", "));
-                    this.open = false;
-                    this.getList();
-                  }
-                }).catch(error => {
-                  console.error("更新服务类型关联失败:", error);
-                  this.$modal.msgWarning("项目区域基本信息已更新，但服务类型关联更新失败");
-                  this.open = false;
-                  this.getList();
-                });
-              } else {
-                this.$modal.msgError(response?.msg || "修改项目区域失败");
-              }
-            }).catch(error => {
-              console.error("修改项目区域失败:", error);
-              this.$modal.msgError("修改失败: " + (error.message || "未知错误"));
-            });
-          } else {
-            // 新增项目区域
-            addProject_region(submitForm).then(response => {
-              console.log("新增项目区域响应:", response);
+          updateProject_region(this.form)
+            .then(response => {
+              console.log(`[${new Date().toISOString()}] 更新基本信息完成:`, response);
               
               if (response && response.code === 200) {
-                // 保存新增区域名称，用于后续查询
-                const newRegionName = this.form.regionName;
-                const newServiceTypes = [...this.form.serviceTypes]; // 复制一份以防后续表单重置
+                // 更新加载提示文本
+                this.submitLoading = false;
                 
-                // 先关闭对话框并刷新列表
-                //this.$modal.msgSuccess("新增成功，正在关联服务类型...");
-                this.open = false;
-                
-                // 刷新列表后，立即查询新添加的记录
-                this.getList();
-                
-                // 等待列表刷新后，查询新添加的记录
-                setTimeout(() => {
-                  // 构造查询条件，根据区域名称查询
-                  const query = {
-                    regionName: newRegionName,
-                    pageSize: 10, // 限制结果数量
-                    pageNum: 1
-                  };
-                  
-                  console.log("查询新添加区域:", query);
-                  
-                  // 使用列表查询API查询新添加的记录
-                  listProject_region(query).then(queryResponse => {
-                    console.log("查询结果:", queryResponse);
-                    
-                    if (queryResponse && queryResponse.code === 200 && queryResponse.rows && queryResponse.rows.length > 0) {
-                      // 假设最新添加的记录会排在最前面
-                      // 如果有多条同名记录，可能需要根据创建时间等条件进一步筛选
-                      const latestRegion = queryResponse.rows[0];
-                      console.log("找到最新添加的区域:", latestRegion);
-                      
-                      if (latestRegion.id) {
-                        // 首先查询是否已有关联
-                        const query = { regionId: latestRegion.id };
-                        
-                        this.listProject_region_service(query).then(relationResponse => {
-                          const existingRelations = relationResponse.rows || [];
-                          const existingTypes = existingRelations.map(r => String(r.serviceType));
-                          
-                          // 找出需要添加的服务类型（排除已存在的）
-                          const toAdd = newServiceTypes.filter(type => !existingTypes.includes(String(type)));
-                          
-                          if (toAdd.length === 0) {
-                            this.$modal.msgSuccess("新增成功");
-                            this.getList();
-                            return;
-                          }
-                          
-                          // 逐个添加服务类型关联，避免并发问题
-                          toAdd.reduce((chain, type) => {
-                            return chain.then(() => {
-                              const data = {
-                                regionId: latestRegion.id,
-                                serviceType: String(type)
-                              };
-                              console.log("添加关联:", data);
-                              
-                              return this.addProject_region_service(data)
-                                .then(res => {
-                                  console.log("关联添加成功:", type);
-                                  return res;
-                                })
-                                .catch(error => {
-                                  // 如果是唯一约束错误，忽略它
-                                  if (error.response && 
-                                      error.response.data && 
-                                      error.response.data.includes("Duplicate entry")) {
-                                    console.warn("关联已存在，忽略错误:", type);
-                                    return { ignored: true, type };
-                                  }
-                                  console.error("添加关联失败:", error);
-                                  return { error: true, type, message: error.message };
-                                });
-                            });
-                          }, Promise.resolve())
-                          .then(() => {
-                            this.$modal.msgSuccess("服务类型关联已创建");
-                            this.getList();
-                          })
-                          .catch(error => {
-                            this.$modal.msgWarning("部分服务类型关联创建失败");
-                            this.getList();
-                          });
-                        }).catch(error => {
-                          console.error("查询现有关联失败:", error);
-                          this.$modal.msgWarning("无法查询现有关联，创建可能重复");
-                          
-                          // 继续执行原有的添加逻辑...
-                        });
-                      } else {
-                        this.$modal.msgWarning("找到新区域记录，但ID无效");
-                      }
-                    } else {
-                      this.$modal.msgWarning("未找到新添加的区域记录，请手动关联服务类型");
-                    }
-                  }).catch(error => {
-                    console.error("查询新添加区域失败:", error);
-                    this.$modal.msgError("查询新添加区域失败: " + (error.message || "未知错误"));
+                // 处理服务类型关联
+                return this.handleServiceTypeAssociations(this.form.id, this.form.serviceTypes)
+                  .then(result => {
+                    console.log(`[${new Date().toISOString()}] 服务类型关联处理完成:`, result);
+                    return { success: true };
+                  })
+                  .catch(error => {
+                    console.error(`[${new Date().toISOString()}] 服务类型关联处理失败:`, error);
+                    return { success: false, error };
                   });
-                }, 500); // 延迟500毫秒，确保列表已刷新
               } else {
-                this.$modal.msgError(response?.msg || "新增失败");
+                return Promise.reject(response || new Error("更新失败"));
               }
-            }).catch(error => {
-              console.error("新增项目区域失败:", error);
-              this.$modal.msgError("新增失败: " + (error.message || "未知错误"));
+            })
+            .then(result => {
+              // 处理结果
+              if (result.success) {
+                this.$modal.msgSuccess("修改成功");
+              } else {
+                this.$modal.msgWarning("项目区域已更新，但服务类型关联部分失败");
+              }
+              
+              // 关闭弹框
+              this.open = false;
+              
+              // 等待弹框完全关闭后再刷新列表
+              setTimeout(() => {
+                this.getList();
+              }, 100);
+            })
+            .catch(error => {
+              this.handleError(error, "修改项目区域失败");
+            })
+            .finally(() => {
+              this.submitting = false;
+              this.submitLoading = false;
             });
-          }
+        } else {
+          // 新增项目区域
+          addProject_region(this.form).then(response => {
+            if (response && response.code === 200) {
+              // 成功消息
+              this.$modal.msgSuccess("新增成功");
+              this.open = false;
+              
+              // 保存服务类型，用于下一步关联
+              const savedServiceTypes = [...this.form.serviceTypes];
+              const savedRegionName = this.form.regionName;
+              
+              // 先刷新列表
+              this.getList();
+              
+              // 延迟执行关联操作，不阻塞用户界面
+              setTimeout(() => {
+                // 查询新添加的区域
+                listProject_region({
+                  regionName: savedRegionName,
+                  pageSize: 10,
+                  pageNum: 1
+                }).then(listResp => {
+                  if (listResp?.rows?.length > 0) {
+                    // 按创建时间降序排序，取最新的匹配记录
+                    const candidates = listResp.rows.filter(r => r.regionName === savedRegionName);
+                    const latestRegion = candidates.sort((a, b) => 
+                      new Date(b.createTime || 0) - new Date(a.createTime || 0)
+                    )[0];
+                    
+                    if (latestRegion?.id) {
+                      // 静默处理服务类型关联
+                      this.handleServiceTypeAssociations(latestRegion.id, savedServiceTypes)
+                        .then(() => console.log("服务类型关联成功"))
+                        .catch(err => console.error("服务类型关联失败:", err));
+                    }
+                  }
+                }).catch(err => console.error("查询新增区域失败:", err));
+              }, 500);
+            } else {
+              this.handleError(response, "新增失败");
+            }
+          }).catch(error => {
+            this.handleError(error, "新增项目区域失败");
+          }).finally(() => {
+            this.submitting = false;
+            this.submitLoading = false;
+          });
         }
       });
     },
     /**
-     * 更新区域与服务类型的关联关系
+     * 处理服务类型关联 - 统一方法，用于添加和更新场景
      * @param {number} regionId - 区域ID
      * @param {Array} serviceTypes - 服务类型数组
      * @returns {Promise} - Promise对象
      */
-    updateRegionServiceRelations(regionId, serviceTypes) {
+    handleServiceTypeAssociations(regionId, serviceTypes) {
       if (!regionId || !serviceTypes || !Array.isArray(serviceTypes)) {
         return Promise.reject(new Error("参数无效"));
       }
       
-      console.log("开始更新区域服务类型关联，区域ID:", regionId, "服务类型:", serviceTypes);
+      console.log("处理区域服务类型关联，区域ID:", regionId, "服务类型:", serviceTypes);
       
-      // 先查询现有关联
-      return new Promise((resolve, reject) => {
-        // 使用已存在的查询API
-        const query = { regionId: regionId };
-        
-        // 使用API获取现有关联
-        this.listProject_region_service(query).then(response => {
-          const existingRelations = response.rows || [];
-          console.log("现有关联关系:", existingRelations);
+      // 标准化服务类型数组
+      const uniqueServiceTypes = [...new Set(serviceTypes)].map(t => String(t));
+      
+      // 查询现有关联
+      return listProject_region_service({ regionId })
+        .then(response => {
+          const existingRelations = response?.rows || [];
+          const existingTypes = existingRelations.map(r => String(r.serviceType));
           
-          // 获取唯一服务类型
-          const uniqueServiceTypes = [...new Set(serviceTypes)].map(t => String(t));
-          console.log("待添加的服务类型:", uniqueServiceTypes);
+          // 计算需要添加和删除的关联
+          const typesToAdd = uniqueServiceTypes.filter(t => !existingTypes.includes(t));
+          const toDelete = existingRelations.filter(r => !uniqueServiceTypes.includes(String(r.serviceType)));
           
-          // 找出需要删除的关联
-          const toDelete = existingRelations.filter(relation => 
-            !uniqueServiceTypes.includes(String(relation.serviceType))
-          );
+          console.log("需要添加的类型:", typesToAdd, "需要删除的关联:", toDelete);
           
-          // 找出需要添加的服务类型 - 过滤掉已经存在的关联
-          const existingTypes = existingRelations.map(relation => String(relation.serviceType));
-          const toAdd = uniqueServiceTypes.filter(type => !existingTypes.includes(type));
-          
-          console.log("需要删除的关联:", toDelete);
-          console.log("需要添加的服务类型:", toAdd);
-          
-          // 如果没有需要变更的内容，直接返回成功
-          if (toDelete.length === 0 && toAdd.length === 0) {
-            console.log("无需更新服务类型关联");
-            this.$modal.msgSuccess("服务类型关联已是最新");
-            resolve({ success: true, unchanged: true });
-            return;
+          // 如果没有变化，直接返回
+          if (typesToAdd.length === 0 && toDelete.length === 0) {
+            return Promise.resolve({ unchanged: true });
           }
           
-          // 执行删除操作
-          const deletePromises = toDelete.length > 0 
-            ? toDelete.map(relation => 
-                this.delProject_region_service(relation.id).catch(error => {
-                  console.error("删除关联失败:", error);
-                  return { error: true, id: relation.id };
-                })
-              )
-            : [Promise.resolve()];
+          // 定义操作链 - 先删除再添加
+          const promises = [];
           
-          // 执行添加操作 - 逐个添加以便于错误处理
-          Promise.all(deletePromises)
-            .then(() => {
-              console.log("删除操作完成，开始添加新关联");
-              
-              // 使用顺序执行而不是并行，以避免竞态条件
-              return toAdd.reduce((chain, type) => {
-                return chain.then(() => {
-                  const data = {
-                    regionId: Number(regionId),
-                    serviceType: String(type)
-                  };
-                  console.log("添加关联:", data);
-                  
-                  return this.addProject_region_service(data)
-                    .then(res => {
-                      console.log("关联添加成功:", type);
-                      return res;
-                    })
-                    .catch(error => {
-                      // 如果是唯一约束错误，忽略它（意味着关联已存在）
-                      if (error.response && 
-                          error.response.data && 
-                          error.response.data.includes("Duplicate entry")) {
-                        console.warn("关联已存在，忽略错误:", type);
-                        return { ignored: true, type };
-                      }
-                      console.error("添加关联失败:", error);
-                      return { error: true, type, message: error.message };
-                    });
-                });
-              }, Promise.resolve());
-            })
-            .then(results => {
-              //this.$modal.msgSuccess("服务类型关联更新成功");
-              resolve({ success: true });
-            })
-            .catch(error => {
-              console.error("关联更新失败:", error);
-              this.$modal.msgError("服务类型关联更新失败");
-              reject(error);
+          // 并行处理删除操作
+          if (toDelete.length > 0) {
+            toDelete.forEach(r => {
+              promises.push(
+                delProject_region_service(r.id)
+                  .catch(err => {
+                    console.warn(`删除关联失败(ID:${r.id}):`, err);
+                    return { error: true, id: r.id };
+                  })
+              );
             });
-        }).catch(error => {
-          console.error("查询现有关联失败:", error);
-          this.$modal.msgError("查询现有服务类型关联失败");
-          reject(error);
+          }
+          
+          // 对每个Promise添加超时处理
+          const addServiceWithTimeout = (data) => {
+            const addPromise = addProject_region_service(data);
+            const timeoutPromise = new Promise((_, reject) => 
+              setTimeout(() => reject(new Error("添加操作超时")), 8000)); // 8秒超时
+            
+            return Promise.race([addPromise, timeoutPromise]);
+          };
+          
+          // 并行处理添加操作，使用优化的添加方法
+          if (typesToAdd.length > 0) {
+            typesToAdd.forEach(type => {
+              const data = {
+                regionId: Number(regionId),
+                serviceType: String(type)
+              };
+              promises.push(
+                addServiceWithTimeout(data)
+                  .catch(err => {
+                    // 忽略唯一约束错误
+                    if (err?.response?.data?.includes?.("Duplicate entry")) {
+                      return { ignored: true };
+                    }
+                    console.warn(`添加服务类型关联失败(${type}):`, err);
+                    return { error: true, type, reason: err.message || '未知错误' };
+                  })
+              );
+            });
+          }
+          
+          // 并行执行所有操作，提高效率
+          return Promise.all(promises);
+        })
+        .catch(err => {
+          console.error("处理服务类型关联出错:", err);
+          return Promise.reject(err);
         });
-      });
+    },
+    /**
+     * 通过查询查找新添加的区域记录
+     * @param {string} regionName - 区域名称
+     * @param {Array} serviceTypes - 服务类型数组
+     */
+    findNewlyAddedRegion(regionName, serviceTypes) {
+      this.$modal.msgSuccess("新增成功，正在关联服务类型...");
+      this.open = false;
+      
+      // 立即刷新列表
+      this.getList();
+      
+      // 查询新添加的记录
+      const query = {
+        regionName: regionName,
+        pageSize: 10,
+        pageNum: 1
+      };
+      
+      // 尝试查询，如果失败则不再尝试关联
+      listProject_region(query)
+        .then(response => {
+          if (response && response.code === 200 && response.rows && response.rows.length > 0) {
+            // 找到最新添加的记录
+            const latestRegion = response.rows.find(r => r.regionName === regionName);
+            
+            if (latestRegion && latestRegion.id) {
+              // 找到了ID，处理服务类型关联
+              return this.handleServiceTypeAssociations(latestRegion.id, serviceTypes);
+            } else {
+              return Promise.reject(new Error("找到区域记录，但ID无效"));
+            }
+          } else {
+            return Promise.reject(new Error("未找到新添加的区域记录"));
+          }
+        })
+        .then(() => {
+          // 服务类型关联成功，静默处理，避免过多提示干扰用户
+          this.getList(); // 再次刷新列表以显示最新状态
+        })
+        .catch(error => {
+          console.error("延迟关联服务类型失败:", error);
+          // 已经显示过新增成功，这里只在控制台记录错误，不再弹窗
+        });
     },
     /** 删除按钮操作 */
     handleDelete(row) {
@@ -754,6 +758,58 @@ export default {
     
     delProject_region_service(id) {
       return delProject_region_service(id);
+    },
+    batchAddRegionServices(data) {
+      return batchAddRegionServices(data);
+    },
+    updateRegionWithServices(data) {
+      return updateRegionWithServices(data);
+    },
+    // 改进错误处理，提供更好的用户反馈
+    handleError(error, defaultMessage) {
+      console.error(defaultMessage, error);
+      
+      // 提取响应中的错误信息
+      let errorMsg = defaultMessage;
+      if (error?.response?.data) {
+        // 尝试提取API返回的详细错误信息
+        if (typeof error.response.data === 'string') {
+          errorMsg = error.response.data;
+        } else if (error.response.data.msg) {
+          errorMsg = error.response.data.msg;
+        }
+      } else if (error?.message) {
+        errorMsg = error.message;
+      }
+      
+      // 显示错误信息
+      this.$modal.msgError(errorMsg);
+      
+      // 总是重置提交状态
+      this.submitting = false;
+      this.submitLoading = false;
+      
+      // 关闭任何可能活跃的加载器
+      try {
+        this.$loading().close();
+      } catch (e) {
+        // 忽略关闭加载器可能的错误
+      }
+    },
+    // 创建一个单独的方法处理弹框关闭和刷新
+    closeDialogAndRefresh() {
+      // 如果弹框已经关闭，则不再处理
+      if (!this.open) {
+        return;
+      }
+      
+      // 关闭弹框
+      this.open = false;
+      
+      // 确保弹框完全关闭后再刷新列表
+      setTimeout(() => {
+        this.getList();
+      }, 100);
     }
   }
 };

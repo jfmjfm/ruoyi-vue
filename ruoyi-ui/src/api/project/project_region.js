@@ -43,11 +43,11 @@ export function delProject_region(id) {
   })
 }
 
-// 更新项目区域的服务类型关联 - 尝试不同的API端点
+// 更新项目区域的服务类型关联
 export function updateRegionServices(data) {
   return request({
-    url: '/project/project_region_service/batchUpdate',  // 使用可能存在的专门API
-    method: 'post',
+    url: '/project/project_region_service/updateBatch',
+    method: 'put',
     data: data
   })
 }
@@ -66,5 +66,23 @@ export function deleteRegionServices(regionId) {
   return request({
     url: '/project/project_region_service/deleteByRegionId/' + regionId,
     method: 'delete'
+  })
+}
+
+// 批量添加项目区域-服务类型关联
+export function batchAddRegionServices(data) {
+  return request({
+    url: '/project/project_region_service/batchAdd',
+    method: 'post',
+    data: data
+  })
+}
+
+// 更新项目区域并同步更新服务类型关联
+export function updateRegionWithServices(data) {
+  return request({
+    url: '/project/project_region/updateWithServices',
+    method: 'put',
+    data: data
   })
 }
