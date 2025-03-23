@@ -68,13 +68,31 @@
       <el-table-column 
         label="服务类型" 
         align="left" 
-        prop="description" 
         min-width="400" 
-        :show-overflow-tooltip="true"
+        :show-overflow-tooltip="false"
         class-name="description-cell" 
-      />
+      >
+        <template slot-scope="scope">
+          <span v-if="!scope.row.description">-</span>
+          <template v-else>
+            <span 
+              v-for="(type, index) in scope.row.description.split('、')" 
+              :key="index"
+              class="service-type-tag"
+            >
+              {{ type }}
+            </span>
+          </template>
+        </template>
+      </el-table-column>
       <el-table-column label="操作" align="center" class-name="small-padding fixed-width" width="180">
         <template slot-scope="scope">
+          <el-button
+            size="mini"
+            type="text"
+            icon="el-icon-view"
+            @click="handleGIS(scope.row)"
+          >查看</el-button>
           <el-button
             size="mini"
             type="text"
@@ -89,12 +107,6 @@
             @click="handleDelete(scope.row)"
             v-hasPermi="['project:region:remove']"
           >删除</el-button>
-          <el-button
-            size="mini"
-            type="text"
-            icon="el-icon-map-location"
-            @click="handleGIS(scope.row)"
-          >GIS定位</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -115,20 +127,34 @@
             <el-input v-model="form.regionName" placeholder="请输入区域名称" />
           </el-form-item>
           <el-form-item label="服务类型" prop="serviceTypes">
-            <el-checkbox-group v-model="form.serviceTypes" @change="updateDescription">
+            <el-checkbox-group v-model="form.serviceTypes" @change="updateDescription" class="service-type-group">
               <el-checkbox
                 v-for="dict in serviceTypeOptions"
                 :key="dict.dictValue"
                 :label="dict.dictValue"
+                class="service-type-checkbox"
               >{{ dict.dictLabel }}</el-checkbox>
             </el-checkbox-group>
           </el-form-item>
           <el-form-item label="已选服务" prop="description">
+            <div class="selected-services">
+              <span 
+                v-for="(type, index) in form.description ? form.description.split('、') : []" 
+                :key="index"
+                class="service-type-tag selected"
+              >
+                {{ type }}
+              </span>
+              <div v-if="!form.description" class="no-selection">
+                请选择服务类型
+              </div>
+            </div>
             <el-input 
               v-model="form.description" 
               type="textarea" 
               placeholder="请输入服务类型" 
               readonly 
+              style="display: none;"
             />
           </el-form-item>
         </el-form>
@@ -691,17 +717,14 @@ export default {
     },
     /** GIS定位按钮操作 */
     handleGIS(row) {
-      const regionId = row.id;
-      const regionName = row.regionName;
-      const serviceTypes = row.serviceTypes ? row.serviceTypes.join(',') : '';
+      console.log("查看按钮被点击，行数据:", row); // 添加日志
+      const regionId = row.id; 
       
-      // 使用路由跳转，并传递参数
+      // 路由跳转，只传递 regionId
       this.$router.push({
         path: '/project/prjGIS',
         query: {
-          regionId: regionId,
-          regionName: regionName,
-          serviceTypes: serviceTypes
+          regionId: regionId // 仅传递 regionId
         }
       });
     },
@@ -824,5 +847,59 @@ export default {
 .el-table .description-cell {
   white-space: pre-line;
   word-break: break-word;
+}
+
+/* 服务类型标签样式 */
+.service-type-tag {
+  display: inline-block;
+  padding: 4px 10px;
+  margin: 4px;
+  border-radius: 4px;
+  border: 1px solid #409EFF;
+  color: #409EFF;
+  background-color: rgba(64, 158, 255, 0.1);
+  font-size: 13px;
+}
+
+.service-type-tag.selected {
+  background-color: rgba(64, 158, 255, 0.2);
+}
+
+/* 复选框组和标签样式 */
+.service-type-group {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.service-type-checkbox {
+  margin: 6px 8px 6px 0;
+}
+
+.service-type-checkbox >>> .el-checkbox__label {
+  padding: 4px 8px;
+  border: 1px solid #409EFF;
+  border-radius: 4px;
+  background-color: rgba(64, 158, 255, 0.05);
+  margin-left: 5px;
+}
+
+.service-type-checkbox >>> .el-checkbox__input.is-checked + .el-checkbox__label {
+  background-color: rgba(64, 158, 255, 0.15);
+  color: #409EFF;
+}
+
+/* 已选服务样式 */
+.selected-services {
+  min-height: 36px;
+  padding: 5px;
+  background-color: #f9f9f9;
+  border-radius: 4px;
+  border: 1px solid #dcdfe6;
+}
+
+.no-selection {
+  color: #999;
+  padding: 8px;
+  font-size: 14px;
 }
 </style> 

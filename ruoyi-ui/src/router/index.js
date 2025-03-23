@@ -96,7 +96,15 @@ export const constantRoutes = [
         path: 'gis',
         component: () => import('@/views/project/gis/index'),
         name: 'GIS',
+        hidden: true,
         meta: { title: 'GIS地图', icon: 'map' }
+      },
+      {
+        path: 'prjGIS',
+        component: () => import('@/views/project/prjGIS/index'),
+        name: 'ProjectGIS',
+        hidden: true,
+        meta: { title: 'GIS定位', icon: 'el-icon-map-location' }
       }
     ]
   }
