@@ -64,34 +64,204 @@
           </div>
         </div>
         <div class="panel-content">
-          <!-- 在第一个面板添加区域信息显示 -->
-          <template v-if="index === 0 && regionInfo.regionId">
+          <!-- 通用区域信息显示 - 所有面板都显示 -->
+          <template v-if="regionInfo.regionId">
             <el-divider content-position="left">区域信息</el-divider>
             <el-descriptions :column="1" border>
               <el-descriptions-item label="区域ID">{{ regionInfo.regionId }}</el-descriptions-item>
               <el-descriptions-item label="区域名称">{{ regionInfo.regionName }}</el-descriptions-item>
             </el-descriptions>
-            <el-divider content-position="left">图层控制</el-divider>
           </template>
           
-          <template v-if="index === 0">
-            <!-- 图层控制面板 -->
-            <div class="search-box">
-              <el-input placeholder="搜索图层..." v-model="searchQuery" prefix-icon="el-icon-search"></el-input>
-            </div>
-            <div class="opacity-control">
-              <span>透明度的设定</span>
-              <el-slider v-model="opacity" :min="0" :max="100"></el-slider>
-            </div>
-            <el-switch v-model="showLegend" active-text="图例"></el-switch>
-            <div class="layer-list">
-              <el-collapse v-model="activeCategories">
-                <el-collapse-item v-for="category in categories" :key="category.name" :title="category.name">
-                  <!-- 图层列表将在这里展示 -->
-                </el-collapse-item>
-              </el-collapse>
-            </div>
-          </template>
+          <!-- 动态生成面板内容 -->
+          <div class="panel-specific-content">
+            <!-- 水源涵养面板 (index === 0 或 type === '0') -->
+            <template v-if="item.type === '0'">
+              <el-divider content-position="left">图层控制</el-divider>
+              <div class="search-box">
+                <el-input placeholder="搜索图层..." v-model="searchQuery" prefix-icon="el-icon-search"></el-input>
+              </div>
+              <div class="opacity-control">
+                <span>透明度设定</span>
+                <el-slider v-model="opacity" :min="0" :max="100"></el-slider>
+              </div>
+              <el-switch v-model="showLegend" active-text="图例"></el-switch>
+              <div class="layer-list">
+                <el-collapse v-model="activeCategories">
+                  <el-collapse-item v-for="category in categories" :key="category.name" :title="category.name">
+                    <!-- 图层列表 -->
+                  </el-collapse-item>
+                </el-collapse>
+              </div>
+            </template>
+            
+            <!-- 水源供给面板 -->
+            <template v-else-if="item.type === '1'">
+              <el-divider content-position="left">水源供给设置</el-divider>
+              <div class="parameter-control">
+                <span>年均径流量阈值</span>
+                <el-slider v-model="waterSupplyThreshold" :min="0" :max="500" :step="10"></el-slider>
+              </div>
+              <el-divider content-position="left">数据图层</el-divider>
+              <div class="data-layers">
+                <el-checkbox-group v-model="waterSupplyLayers">
+                  <el-checkbox label="precipitationLayer">降水量图层</el-checkbox>
+                  <el-checkbox label="evaporationLayer">蒸发量图层</el-checkbox>
+                  <el-checkbox label="runoffLayer">径流量图层</el-checkbox>
+                </el-checkbox-group>
+              </div>
+            </template>
+            
+            <!-- 土壤保持面板 -->
+            <template v-else-if="item.type === '2'">
+              <el-divider content-position="left">土壤保持设置</el-divider>
+              <div class="parameter-control">
+                <span>土壤侵蚀风险等级</span>
+                <el-radio-group v-model="soilErosionRisk">
+                  <el-radio label="low">低风险</el-radio>
+                  <el-radio label="medium">中风险</el-radio>
+                  <el-radio label="high">高风险</el-radio>
+                </el-radio-group>
+              </div>
+              <el-divider content-position="left">数据图层</el-divider>
+              <div class="data-layers">
+                <el-checkbox-group v-model="soilLayers">
+                  <el-checkbox label="erosionLayer">侵蚀量图层</el-checkbox>
+                  <el-checkbox label="vegetationLayer">植被覆盖图层</el-checkbox>
+                  <el-checkbox label="slopeLayer">坡度图层</el-checkbox>
+                </el-checkbox-group>
+              </div>
+            </template>
+            
+            <!-- 水质净化面板 -->
+            <template v-else-if="item.type === '3'">
+              <el-divider content-position="left">水质净化设置</el-divider>
+              <div class="parameter-control">
+                <span>污染物类型</span>
+                <el-select v-model="pollutantType" placeholder="请选择">
+                  <el-option label="氮" value="nitrogen"></el-option>
+                  <el-option label="磷" value="phosphorus"></el-option>
+                  <el-option label="重金属" value="heavyMetal"></el-option>
+                </el-select>
+              </div>
+              <el-divider content-position="left">数据图层</el-divider>
+              <div class="data-layers">
+                <el-checkbox-group v-model="waterQualityLayers">
+                  <el-checkbox label="pollutionSourceLayer">污染源图层</el-checkbox>
+                  <el-checkbox label="waterQualityLayer">水质分布图层</el-checkbox>
+                  <el-checkbox label="purificationLayer">净化能力图层</el-checkbox>
+                </el-checkbox-group>
+              </div>
+            </template>
+            
+            <!-- 防风固沙面板 -->
+            <template v-else-if="item.type === '4'">
+              <el-divider content-position="left">防风固沙设置</el-divider>
+              <div class="parameter-control">
+                <span>风蚀模拟周期</span>
+                <el-radio-group v-model="windErosionPeriod">
+                  <el-radio label="month">月尺度</el-radio>
+                  <el-radio label="season">季节尺度</el-radio>
+                  <el-radio label="year">年尺度</el-radio>
+                </el-radio-group>
+              </div>
+              <el-divider content-position="left">数据图层</el-divider>
+              <div class="data-layers">
+                <el-checkbox-group v-model="windSandLayers">
+                  <el-checkbox label="windSpeedLayer">风速图层</el-checkbox>
+                  <el-checkbox label="sandSourceLayer">沙源图层</el-checkbox>
+                  <el-checkbox label="vegetationBarrierLayer">植被屏障图层</el-checkbox>
+                </el-checkbox-group>
+              </div>
+            </template>
+            
+            <!-- 洪水调蓄面板 -->
+            <template v-else-if="item.type === '5'">
+              <el-divider content-position="left">洪水调蓄设置</el-divider>
+              <div class="parameter-control">
+                <span>洪水重现期</span>
+                <el-select v-model="floodReturnPeriod" placeholder="请选择">
+                  <el-option label="5年一遇" value="5"></el-option>
+                  <el-option label="10年一遇" value="10"></el-option>
+                  <el-option label="20年一遇" value="20"></el-option>
+                  <el-option label="50年一遇" value="50"></el-option>
+                </el-select>
+              </div>
+              <el-divider content-position="left">数据图层</el-divider>
+              <div class="data-layers">
+                <el-checkbox-group v-model="floodLayers">
+                  <el-checkbox label="floodAreaLayer">淹没范围图层</el-checkbox>
+                  <el-checkbox label="floodDepthLayer">淹没深度图层</el-checkbox>
+                  <el-checkbox label="floodDurationLayer">淹没持续时间图层</el-checkbox>
+                </el-checkbox-group>
+              </div>
+            </template>
+            
+            <!-- 固碳服务面板 -->
+            <template v-else-if="item.type === '6'">
+              <el-divider content-position="left">固碳服务设置</el-divider>
+              <div class="parameter-control">
+                <span>碳汇计算周期</span>
+                <el-date-picker
+                  v-model="carbonPeriod"
+                  type="daterange"
+                  range-separator="至"
+                  start-placeholder="开始日期"
+                  end-placeholder="结束日期">
+                </el-date-picker>
+              </div>
+              <el-divider content-position="left">数据图层</el-divider>
+              <div class="data-layers">
+                <el-checkbox-group v-model="carbonLayers">
+                  <el-checkbox label="vegetationCarbonLayer">植被固碳图层</el-checkbox>
+                  <el-checkbox label="soilCarbonLayer">土壤固碳图层</el-checkbox>
+                  <el-checkbox label="carbonFluxLayer">碳通量图层</el-checkbox>
+                </el-checkbox-group>
+              </div>
+            </template>
+            
+            <!-- 粮食供给面板 -->
+            <template v-else-if="item.type === '7'">
+              <el-divider content-position="left">粮食供给设置</el-divider>
+              <div class="parameter-control">
+                <span>作物类型</span>
+                <el-select v-model="cropType" placeholder="请选择">
+                  <el-option label="小麦" value="wheat"></el-option>
+                  <el-option label="水稻" value="rice"></el-option>
+                  <el-option label="玉米" value="corn"></el-option>
+                  <el-option label="大豆" value="soybean"></el-option>
+                </el-select>
+              </div>
+              <el-divider content-position="left">数据图层</el-divider>
+              <div class="data-layers">
+                <el-checkbox-group v-model="foodLayers">
+                  <el-checkbox label="croplandLayer">农田分布图层</el-checkbox>
+                  <el-checkbox label="yieldLayer">产量分布图层</el-checkbox>
+                  <el-checkbox label="soilQualityLayer">土壤质量图层</el-checkbox>
+                </el-checkbox-group>
+              </div>
+            </template>
+            
+            <!-- 默认面板 - 当没有匹配的类型时显示 -->
+            <template v-else>
+              <el-divider content-position="left">图层控制</el-divider>
+              <div class="search-box">
+                <el-input placeholder="搜索图层..." v-model="searchQuery" prefix-icon="el-icon-search"></el-input>
+              </div>
+              <div class="opacity-control">
+                <span>透明度设定</span>
+                <el-slider v-model="opacity" :min="0" :max="100"></el-slider>
+              </div>
+              <el-switch v-model="showLegend" active-text="图例"></el-switch>
+              <div class="layer-list">
+                <el-collapse v-model="activeCategories">
+                  <el-collapse-item v-for="category in categories" :key="category.name" :title="category.name">
+                    <!-- 默认图层列表 -->
+                  </el-collapse-item>
+                </el-collapse>
+              </div>
+            </template>
+          </div>
         </div>
       </div>
     </transition-group>
@@ -103,7 +273,7 @@ import 'ol/ol.css';
 import Map from 'ol/Map';
 import View from 'ol/View';
 import TileLayer from 'ol/layer/Tile';
-import OSM from 'ol/source/OSM';
+import XYZ from 'ol/source/XYZ';
 import { fromLonLat } from 'ol/proj';
 // 导入获取区域详情和服务类型的API
 import { getProject_region } from "@/api/project/project_region";
@@ -134,7 +304,7 @@ export default {
       serviceTypeOptions: [],
       
       // 详细信息面板是否折叠
-      detailCollapsed: false,
+      detailCollapsed: true,
       
       // 菜单项 - 将被动态生成
       menuItems: [],
@@ -154,7 +324,35 @@ export default {
         { name: 'Land Cover and Land Use' },
         { name: 'Orthoimagery' },
         { name: 'Population Distribution' }
-      ]
+      ],
+      
+      // 水源供给面板数据
+      waterSupplyThreshold: 200,
+      waterSupplyLayers: ['precipitationLayer', 'runoffLayer'],
+      
+      // 土壤保持面板数据
+      soilErosionRisk: 'medium',
+      soilLayers: ['erosionLayer'],
+      
+      // 水质净化面板数据
+      pollutantType: 'nitrogen',
+      waterQualityLayers: ['waterQualityLayer'],
+      
+      // 防风固沙面板数据
+      windErosionPeriod: 'year',
+      windSandLayers: ['windSpeedLayer'],
+      
+      // 洪水调蓄面板数据
+      floodReturnPeriod: '20',
+      floodLayers: ['floodAreaLayer'],
+      
+      // 固碳服务面板数据
+      carbonPeriod: [new Date(), new Date()],
+      carbonLayers: ['vegetationCarbonLayer'],
+      
+      // 粮食供给面板数据
+      cropType: 'wheat',
+      foodLayers: ['croplandLayer'],
     };
   },
   created() {
@@ -179,8 +377,19 @@ export default {
       this.map = new Map({
         target: 'map',
         layers: [
+          // 天地图影像底图
           new TileLayer({
-            source: new OSM()
+            source: new XYZ({
+              url: 'https://t{0-7}.tianditu.gov.cn/DataServer?T=img_w&x={x}&y={y}&l={z}&tk=b079cd52cb89ffdc40073702b8cce199',
+              maxZoom: 18
+            })
+          }),
+          // 天地图标注图层
+          new TileLayer({
+            source: new XYZ({
+              url: 'https://t{0-7}.tianditu.gov.cn/DataServer?T=cia_w&x={x}&y={y}&l={z}&tk=b079cd52cb89ffdc40073702b8cce199',
+              maxZoom: 18
+            })
           })
         ],
         view: new View({
@@ -723,5 +932,55 @@ export default {
 .service-type-list {
   display: flex;
   flex-wrap: wrap;
+}
+
+.panel-specific-content {
+  margin-top: 15px;
+  
+  .parameter-control {
+    margin: 15px 0;
+    
+    span {
+      display: block;
+      margin-bottom: 8px;
+      color: #606266;
+      font-weight: 500;
+    }
+  }
+  
+  .data-layers {
+    margin: 15px 0;
+    padding: 10px;
+    background-color: #f8f8f8;
+    border-radius: 4px;
+    
+    .el-checkbox-group {
+      display: flex;
+      flex-direction: column;
+      
+      .el-checkbox {
+        margin-left: 0;
+        margin-bottom: 8px;
+        
+        &:last-child {
+          margin-bottom: 0;
+        }
+      }
+    }
+  }
+  
+  .el-divider__text {
+    font-size: 15px;
+    font-weight: 600;
+    color: #409EFF;
+  }
+  
+  .el-select {
+    width: 100%;
+  }
+  
+  .el-date-editor {
+    width: 100%;
+  }
 }
 </style>

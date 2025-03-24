@@ -56,7 +56,7 @@
     </el-form>
     <!--  底部  -->
     <div class="el-login-footer">
-      <span>Copyright © 2018-2025 ruoyi.vip All Rights Reserved.</span>
+      <span>版权所有 © 2025 中国科学院生态环境研究中心生态系统过程与服务组.</span>
     </div>
   </div>
 </template>

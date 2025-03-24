@@ -1,126 +1,27 @@
 <template>
   <div class="app-container home">
     <el-row :gutter="20">
-      <el-col :sm="24" :lg="12" style="padding-left: 20px">
-        <h2>若依后台管理框架</h2>
-        <p>
-          一直想做一款后台管理系统，看了很多优秀的开源项目但是发现没有合适自己的。于是利用空闲休息时间开始自己写一套后台系统。如此有了若依管理系统，她可以用于所有的Web应用程序，如网站管理后台，网站会员中心，CMS，CRM，OA等等，当然，您也可以对她进行深度定制，以做出更强系统。所有前端后台代码封装过后十分精简易上手，出错概率低。同时支持移动客户端访问。系统会陆续更新一些实用功能。
-        </p>
-        <p>
-          <b>当前版本:</b> <span>v{{ version }}</span>
-        </p>
-        <p>
-          <el-tag type="danger">&yen;免费开源</el-tag>
-        </p>
-        <p>
-          <el-button
-            type="primary"
-            size="mini"
-            icon="el-icon-cloudy"
-            plain
-            @click="goTarget('https://gitee.com/y_project/RuoYi-Vue')"
-            >访问码云</el-button
-          >
-          <el-button
-            size="mini"
-            icon="el-icon-s-home"
-            plain
-            @click="goTarget('http://ruoyi.vip')"
-            >访问主页</el-button
-          >
-        </p>
-      </el-col>
-
-      <el-col :sm="24" :lg="12" style="padding-left: 50px">
+      <el-col :sm="24" :lg="24" style="padding-left: 20px">
         <el-row>
-          <el-col :span="12">
-            <h2>技术选型</h2>
-          </el-col>
-        </el-row>
-        <el-row>
-          <el-col :span="6">
-            <h4>后端技术</h4>
-            <ul>
-              <li>SpringBoot</li>
-              <li>Spring Security</li>
-              <li>JWT</li>
-              <li>MyBatis</li>
-              <li>Druid</li>
-              <li>Fastjson</li>
-              <li>...</li>
-            </ul>
-          </el-col>
-          <el-col :span="6">
-            <h4>前端技术</h4>
-            <ul>
-              <li>Vue</li>
-              <li>Vuex</li>
-              <li>Element-ui</li>
-              <li>Axios</li>
-              <li>Sass</li>
-              <li>Quill</li>
-              <li>...</li>
-            </ul>
-          </el-col>
+            <h2>物理模型概述</h2>
+        <el-table :data="serviceData" border stripe stripe-class="light-blue-row" style="width: 100%" class="custom-table">
+          <el-table-column prop="serviceName" label="服务名称" width="120"></el-table-column>
+          <el-table-column prop="serviceDefinition" label="服务定义"></el-table-column>
+          <el-table-column prop="physicalModel" label="物理模型"></el-table-column>
+          <el-table-column prop="physicalIndicator" label="物理指标"></el-table-column>
+          <el-table-column prop="paraCalibration" label="参数率定方法"></el-table-column>
+          <el-table-column prop="modeCalculation" label="并行计算框架"></el-table-column>
+        </el-table>
         </el-row>
       </el-col>
     </el-row>
-    <el-divider />
-    <el-row :gutter="20">
-      <el-col :xs="24" :sm="24" :md="12" :lg="8">
-        <el-card class="update-log">
-          <div slot="header" class="clearfix">
-            <span>联系信息</span>
-          </div>
-          <div class="body">
-            <p>
-              <i class="el-icon-s-promotion"></i> 官网：<el-link
-                href="http://www.ruoyi.vip"
-                target="_blank"
-                >http://www.ruoyi.vip</el-link
-              >
-            </p>
-            <p>
-              <i class="el-icon-user-solid"></i> QQ群：<s> 满937441 </s> <s> 满887144332 </s>
-              <s> 满180251782 </s> <s> 满104180207 </s> <s> 满186866453 </s> <s> 满201396349 </s>
-              <s> 满101456076 </s> <s> 满101539465 </s> <s> 满264312783 </s> <s> 满167385320 </s> 
-              <s> 满104748341 </s> <s> 满160110482 </s> <s> 满170801498 </s> <s> 满108482800 </s> 
-              <s> 满101046199 </s> <s> 满136919097 </s> <s> 满143961921 </s> <s> 满174951577 </s> 
-              <s> 满161281055 </s> <s> 满138988063 </s> <s> 满151450850 </s> <s> 满224622315 </s>
-              <s> 满287842588 </s> <a href="http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=HKz42pk2zQ1WUMbbRo50-N7tY4IDKKrj&authKey=ukBg3edmUbnmoo40xZCo6R1tYdTglYJ1nBFRW9gTHuZwLI1r8wgFT6cWUrAldwcr&noverify=0&group_code=187944233" target="_blank">187944233</a>
-            </p>
-            <p>
-              <i class="el-icon-chat-dot-round"></i> 微信：<a
-                href="javascript:;"
-                >/ *若依</a
-              >
-            </p>
-            <p>
-              <i class="el-icon-money"></i> 支付宝：<a
-                href="javascript:;"
-                class="支付宝信息"
-                >/ *若依</a
-              >
-            </p>
-          </div>
-        </el-card>
-      </el-col>
-      <el-col :xs="24" :sm="24" :md="12" :lg="8">
-        <el-card class="update-log">
-          <div slot="header" class="clearfix">
-            <span>捐赠支持</span>
-          </div>
-          <div class="body">
-            <img
-              src="@/assets/images/pay.png"
-              alt="donate"
-              width="100%"
-            />
-            <span style="display: inline-block; height: 30px; line-height: 30px"
-              >你可以请作者喝杯咖啡表示鼓励</span
-            >
-          </div>
-        </el-card>
+    
+    <!-- 添加开始使用按钮 -->
+    <divider/>
+
+    <el-row style="margin-top: 20px; margin-bottom: 20px;">
+      <el-col :span="24" style="text-align: center;">
+        <el-button type="primary" size="large" @click="handleStartUsing">开始使用</el-button>
       </el-col>
     </el-row>
   </div>
@@ -132,12 +33,105 @@ export default {
   data() {
     return {
       // 版本号
-      version: "3.8.9"
+      version: "3.8.9",
+      // 原始表格数据
+      tableData: [
+        {
+          attribute: "服务名称",
+          water_conservation: "水源涵养",
+          water_supply: "水源供给",
+          soil_conservation: "土壤保持",
+          water_purification: "水质净化",
+          flood_regulation: "洪水调蓄",
+          windbreak_sand: "防风固沙",
+          carbon_fixation: "固碳服务",
+          climate_regulation: "气候调节"
+        },
+        {
+          attribute: "服务定义",
+          water_conservation: "枯水期基流中众数",
+          water_supply: "年均径流量",
+          soil_conservation: "土壤侵蚀量",
+          water_purification: "氮磷负荷量",
+          flood_regulation: "洪峰淹没面积，持续时间",
+          windbreak_sand: "沙尘通量",
+          carbon_fixation: "植被固碳量",
+          climate_regulation: "气候调节"
+        },
+        {
+          attribute: "物理模型",
+          water_conservation: "VIC",
+          water_supply: "VIC",
+          soil_conservation: "SWAT",
+          water_purification: "SWAT",
+          flood_regulation: "HSPF+DELFT3D",
+          windbreak_sand: "RWEQ",
+          carbon_fixation: "LPJ",
+          climate_regulation: "WRF"
+        },
+        {
+          attribute: "物理指标",
+          water_conservation: "枯水期基流中众数",
+          water_supply: "年均径流量",
+          soil_conservation: "土壤侵蚀量",
+          water_purification: "氮磷负荷量",
+          flood_regulation: "洪峰淹没面积，持续时间",
+          windbreak_sand: "沙尘通量",
+          carbon_fixation: "植被固碳量",
+          climate_regulation: "气候调节"
+        },
+        {
+          attribute: "参数率定方法",
+          water_conservation: "Borg,单/多目标贝叶斯优化",
+          water_supply: "Borg,单/多目标贝叶斯优化",
+          soil_conservation: "单/多目标贝叶斯优化",
+          water_purification: "单/多目标贝叶斯优化",
+          flood_regulation: "单/多目标贝叶斯优化",
+          windbreak_sand: "单/多目标贝叶斯优化",
+          carbon_fixation: "单/多目标贝叶斯优化",
+          climate_regulation: "单/多目标贝叶斯优化"
+        },
+        {
+          attribute: "并行计算方法",
+          water_conservation: "Mesos",
+          water_supply: "Mesos",
+          soil_conservation: "Mesos",
+          water_purification: "Mesos",
+          flood_regulation: "Mesos",
+          windbreak_sand: "Mesos",
+          carbon_fixation: "Mesos",
+          climate_regulation: "Mesos"
+        }
+      ]
     };
+  },
+  computed: {
+    // 处理服务数据以适应表格展示
+    serviceData() {
+      const keys = Object.keys(this.tableData[0]).filter(key => key !== 'attribute');
+      const result = [];
+      
+      keys.forEach(key => {
+        result.push({
+          serviceName: this.tableData[0][key],
+          serviceDefinition: this.tableData[1][key],
+          physicalModel: this.tableData[2][key],
+          physicalIndicator: this.tableData[3][key],
+          paraCalibration:this.tableData[4][key],
+          modeCalculation:this.tableData[5][key]
+        });
+      });
+      
+      return result;
+    }
   },
   methods: {
     goTarget(href) {
       window.open(href, "_blank");
+    },
+    // 添加开始使用按钮点击处理方法
+    handleStartUsing() {
+      this.$router.push('/project/project_region');
     }
   }
 };
@@ -205,5 +199,46 @@ export default {
     }
   }
 }
-</style>
 
+.custom-table {
+  ::v-deep .el-table__row--striped {
+    background-color: rgb(153, 204, 255); // 更改为指定的偶数行颜色
+  }
+  
+  ::v-deep .el-table__header-wrapper {
+    background-color: rgb(48, 65, 86);
+    
+    .el-table__header {
+      background-color: rgb(48, 65, 86) !important;
+      
+      th.el-table__cell {
+        background-color: rgb(48, 65, 86) !important;
+        color: white !important;
+        font-weight: 600;
+        border-bottom: 1px solid #294c73;
+        padding: 12px 0;
+        text-align: center !important; /* 表头文字居中 */
+      }
+    }
+  }
+  
+  ::v-deep .el-table__row {
+    height: 50px; // 增加行高让表格更加大气
+  }
+  
+  ::v-deep .el-table--border {
+    border-radius: 4px;
+    overflow: hidden;
+    box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
+  }
+  
+  /* 移除表头的默认背景色和悬停效果 */
+  ::v-deep .el-table th.is-leaf {
+    background-color: rgb(48, 65, 86) !important;
+  }
+  
+  ::v-deep .el-table__fixed-header-wrapper th.el-table__cell {
+    background-color: rgb(48, 65, 86) !important;
+  }
+}
+</style>

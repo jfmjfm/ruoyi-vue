@@ -209,7 +209,80 @@
     Chatbot.init({
         chatflowid: "078ff3b9-fbde-4a76-a22c-743320204ee0",
         apiHost: "https://thyai.cpolar.cn",
-    })
+        theme: {
+button: {
+backgroundColor: '#3B81F6',
+right: 20,
+bottom: 20,
+size: 48, // small | medium | large | number
+dragAndDrop: true,
+iconColor: 'white',
+customIconSrc: 'https://mac.cpolar.cn/google-messages.svg',
+autoWindowOpen: {
+autoOpen: false, //parameter to control automatic window opening
+openDelay: 2, // Optional parameter for delay time in seconds
+autoOpenOnMobile: false, //parameter to control automatic window opening in mobile
+},
+},
+customCSS: ``, // Add custom CSS styles. Use !important to override default styles
+chatWindow: {
+showTitle: true,
+showAgentMessages: true,
+title: '智能AI助手',
+titleAvatarSrc: 'https://mac.cpolar.cn/google-messages.svg',
+welcomeMessage: '欢迎使用生态价值核算平台AI助手',
+errorMessage: 'This is a custom error message',
+backgroundColor: '#ffffff',
+backgroundImage: 'enter image path or link', // If set, this will overlap the background color of the chat window.
+height: 700,
+width: 400,
+fontSize: 16,
+starterPrompts: [''], // It overrides the starter prompts set by the chat flow passed
+starterPromptFontSize: 15,
+clearChatOnReload: false, // If set to true, the chat will be cleared when the page reloads
+sourceDocsTitle: 'Sources:',
+renderHTML: true,
+botMessage: {
+backgroundColor: '#f7f8ff',
+textColor: '#303235',
+showAvatar: true,
+avatarSrc: 'https://mac.cpolar.cn/logo.png',
+},
+userMessage: {
+backgroundColor: '#3B81F6',
+textColor: '#ffffff',
+showAvatar: true,
+avatarSrc: 'https://mac.cpolar.cn/usericon.png',
+},
+textInput: {
+placeholder: '输入你的问题',
+backgroundColor: '#ffffff',
+textColor: '#303235',
+sendButtonColor: '#3B81F6',
+maxChars: 50,
+maxCharsWarningMessage: 'You exceeded the characters limit. Please input less than 50 characters.',
+autoFocus: true, // If not used, autofocus is disabled on mobile and enabled on desktop. true enables it on both, false disables it on both.
+sendMessageSound: true,
+// sendSoundLocation: "send_message.mp3", // If this is not used, the default sound effect will be played if sendSoundMessage is true.
+receiveMessageSound: true,
+// receiveSoundLocation: "receive_message.mp3", // If this is not used, the default sound effect will be played if receiveSoundMessage is true.
+},
+feedback: {
+color: '#303235',
+},
+dateTimeToggle: {
+date: true,
+time: true,
+},
+footer: {
+textColor: '#303235',
+text: '版权所有',
+company: '中国科学院生态环境研究中心-生态系统过程与服务组',
+companyLink: 'http://www.rcees.ac.cn/',
+},
+},
+},
+});
 </script>
   </body>
 </html>
