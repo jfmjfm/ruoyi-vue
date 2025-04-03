@@ -64,22 +64,70 @@
           </div>
         </div>
         <div class="panel-content">
-          <!-- 通用区域信息显示 - 所有面板都显示 -->
-          <template v-if="regionInfo.regionId">
-            <el-collapse v-model="activeRegionInfo" class="region-info-collapse">
-              <el-collapse-item title="基本信息" name="regionBasicInfo">
-                <el-descriptions :column="1" border>
-                  <el-descriptions-item label="区域ID">{{ regionInfo.regionId }}</el-descriptions-item>
-                  <el-descriptions-item label="区域名称">{{ regionInfo.regionName }}</el-descriptions-item>
-                </el-descriptions>
-              </el-collapse-item>
-            </el-collapse>
-          </template>
-          
           <!-- 动态生成面板内容 -->
           <div class="panel-specific-content">
             <!-- 水源涵养面板 (index === 0 或 type === '0') -->
             <template v-if="item.type === '0'">
+              <el-collapse v-model="activeEcoService">
+                <el-collapse-item title="潜在供给" name="potentialSupply0">
+                  <div class="parameter-control">
+                    <span>服务指标</span>
+                    <el-select v-model="indicators0" placeholder="请选择指标">
+                      <el-option label="枯水期基流" value="baseflow"></el-option>
+                      <el-option label="土壤湿度" value="soilMoisture"></el-option>
+                      <el-option label="蓄水容量" value="waterStorage"></el-option>
+                    </el-select>
+                  </div>
+                  <div class="parameter-control">
+                    <span>时间尺度</span>
+                    <el-radio-group v-model="timeScale0">
+                      <el-radio label="month">月尺度</el-radio>
+                      <el-radio label="year">年尺度</el-radio>
+                    </el-radio-group>
+                  </div>
+                  <div class="parameter-control">
+                    <span>空间格局</span>
+                    <el-radio-group v-model="spatialPattern0">
+                      <el-radio label="max">最高值</el-radio>
+                      <el-radio label="min">最低值</el-radio>
+                      <el-radio label="mode">众数</el-radio>
+                    </el-radio-group>
+                  </div>
+                </el-collapse-item>
+                <el-collapse-item title="实际利用" name="actualUse0">
+                  <div class="parameter-control">
+                    <span>下游居民</span>
+                    <el-input v-model="benefit0.downstream" placeholder="请输入受益量"></el-input>
+                  </div>
+                  <div class="parameter-control">
+                    <span>灌溉农业</span>
+                    <el-input v-model="benefit0.irrigation" placeholder="请输入受益量"></el-input>
+                  </div>
+                </el-collapse-item>
+                <el-collapse-item title="供给赤字" name="deficit0">
+                  <div class="chart-container">
+                    <div ref="deficit0Chart" style="width: 100%; height: 300px;"></div>
+                  </div>
+                </el-collapse-item>
+                <el-collapse-item title="供需匹配" name="matching0">
+                  <div class="parameter-control">
+                    <span>供给优化</span>
+                    <el-select v-model="supplyOptimization0" placeholder="请选择优化方案">
+                      <el-option label="植被恢复" value="vegetation"></el-option>
+                      <el-option label="土壤改良" value="soil"></el-option>
+                      <el-option label="径流引导" value="runoff"></el-option>
+                    </el-select>
+                  </div>
+                  <div class="parameter-control">
+                    <span>需求调控</span>
+                    <el-select v-model="demandControl0" placeholder="请选择调控方案">
+                      <el-option label="用水配额" value="quota"></el-option>
+                      <el-option label="水价调整" value="price"></el-option>
+                      <el-option label="替代水源" value="alternative"></el-option>
+                    </el-select>
+                  </div>
+                </el-collapse-item>
+              </el-collapse>
               <el-divider content-position="left">图层控制</el-divider>
               <div class="search-box">
                 <el-input placeholder="搜索图层..." v-model="searchQuery" prefix-icon="el-icon-search"></el-input>
@@ -100,11 +148,66 @@
             
             <!-- 水源供给面板 -->
             <template v-else-if="item.type === '1'">
-              <el-divider content-position="left">水源供给设置</el-divider>
-              <div class="parameter-control">
-                <span>年均径流量阈值</span>
-                <el-slider v-model="waterSupplyThreshold" :min="0" :max="500" :step="10"></el-slider>
-              </div>
+              <el-collapse v-model="activeEcoService">
+                <el-collapse-item title="潜在供给" name="potentialSupply1">
+                  <div class="parameter-control">
+                    <span>服务指标</span>
+                    <el-select v-model="indicators1" placeholder="请选择指标">
+                      <el-option label="年均径流量" value="runoff"></el-option>
+                      <el-option label="降水量" value="precipitation"></el-option>
+                      <el-option label="蒸发量" value="evaporation"></el-option>
+                    </el-select>
+                  </div>
+                  <div class="parameter-control">
+                    <span>时间尺度</span>
+                    <el-radio-group v-model="timeScale1">
+                      <el-radio label="month">月尺度</el-radio>
+                      <el-radio label="year">年尺度</el-radio>
+                    </el-radio-group>
+                  </div>
+                  <div class="parameter-control">
+                    <span>空间格局</span>
+                    <el-radio-group v-model="spatialPattern1">
+                      <el-radio label="max">最高值</el-radio>
+                      <el-radio label="min">最低值</el-radio>
+                      <el-radio label="mode">众数</el-radio>
+                    </el-radio-group>
+                  </div>
+                </el-collapse-item>
+                <el-collapse-item title="实际利用" name="actualUse1">
+                  <div class="parameter-control">
+                    <span>城市居民</span>
+                    <el-input v-model="benefit1.urban" placeholder="请输入受益量"></el-input>
+                  </div>
+                  <div class="parameter-control">
+                    <span>工业企业</span>
+                    <el-input v-model="benefit1.industry" placeholder="请输入受益量"></el-input>
+                  </div>
+                </el-collapse-item>
+                <el-collapse-item title="供给赤字" name="deficit1">
+                  <div class="chart-container">
+                    <div ref="deficit1Chart" style="width: 100%; height: 300px;"></div>
+                  </div>
+                </el-collapse-item>
+                <el-collapse-item title="供需匹配" name="matching1">
+                  <div class="parameter-control">
+                    <span>供给优化</span>
+                    <el-select v-model="supplyOptimization1" placeholder="请选择优化方案">
+                      <el-option label="水源保护" value="protection"></el-option>
+                      <el-option label="水库建设" value="reservoir"></el-option>
+                      <el-option label="引水工程" value="diversion"></el-option>
+                    </el-select>
+                  </div>
+                  <div class="parameter-control">
+                    <span>需求调控</span>
+                    <el-select v-model="demandControl1" placeholder="请选择调控方案">
+                      <el-option label="用水效率提高" value="efficiency"></el-option>
+                      <el-option label="水价阶梯制" value="priceTier"></el-option>
+                      <el-option label="产业结构调整" value="industry"></el-option>
+                    </el-select>
+                  </div>
+                </el-collapse-item>
+              </el-collapse>
               <el-divider content-position="left">数据图层</el-divider>
               <div class="data-layers">
                 <el-checkbox-group v-model="waterSupplyLayers">
@@ -117,15 +220,66 @@
             
             <!-- 土壤保持面板 -->
             <template v-else-if="item.type === '2'">
-              <el-divider content-position="left">土壤保持设置</el-divider>
-              <div class="parameter-control">
-                <span>土壤侵蚀风险等级</span>
-                <el-radio-group v-model="soilErosionRisk">
-                  <el-radio label="low">低风险</el-radio>
-                  <el-radio label="medium">中风险</el-radio>
-                  <el-radio label="high">高风险</el-radio>
-                </el-radio-group>
-              </div>
+              <el-collapse v-model="activeEcoService">
+                <el-collapse-item title="潜在供给" name="potentialSupply2">
+                  <div class="parameter-control">
+                    <span>服务指标</span>
+                    <el-select v-model="indicators2" placeholder="请选择指标">
+                      <el-option label="土壤侵蚀量" value="erosion"></el-option>
+                      <el-option label="植被覆盖度" value="vegetation"></el-option>
+                      <el-option label="水土保持能力" value="conservation"></el-option>
+                    </el-select>
+                  </div>
+                  <div class="parameter-control">
+                    <span>时间尺度</span>
+                    <el-radio-group v-model="timeScale2">
+                      <el-radio label="month">月尺度</el-radio>
+                      <el-radio label="year">年尺度</el-radio>
+                    </el-radio-group>
+                  </div>
+                  <div class="parameter-control">
+                    <span>空间格局</span>
+                    <el-radio-group v-model="spatialPattern2">
+                      <el-radio label="max">最高值</el-radio>
+                      <el-radio label="min">最低值</el-radio>
+                      <el-radio label="mode">众数</el-radio>
+                    </el-radio-group>
+                  </div>
+                </el-collapse-item>
+                <el-collapse-item title="实际利用" name="actualUse2">
+                  <div class="parameter-control">
+                    <span>农田管理者</span>
+                    <el-input v-model="benefit2.farmers" placeholder="请输入受益量"></el-input>
+                  </div>
+                  <div class="parameter-control">
+                    <span>水库管理者</span>
+                    <el-input v-model="benefit2.reservoir" placeholder="请输入受益量"></el-input>
+                  </div>
+                </el-collapse-item>
+                <el-collapse-item title="供给赤字" name="deficit2">
+                  <div class="chart-container">
+                    <div ref="deficit2Chart" style="width: 100%; height: 300px;"></div>
+                  </div>
+                </el-collapse-item>
+                <el-collapse-item title="供需匹配" name="matching2">
+                  <div class="parameter-control">
+                    <span>供给优化</span>
+                    <el-select v-model="supplyOptimization2" placeholder="请选择优化方案">
+                      <el-option label="植被恢复" value="vegetation"></el-option>
+                      <el-option label="梯田建设" value="terrace"></el-option>
+                      <el-option label="保护性耕作" value="conservation"></el-option>
+                    </el-select>
+                  </div>
+                  <div class="parameter-control">
+                    <span>需求调控</span>
+                    <el-select v-model="demandControl2" placeholder="请选择调控方案">
+                      <el-option label="耕作方式改变" value="farming"></el-option>
+                      <el-option label="土地利用规划" value="landuse"></el-option>
+                      <el-option label="生态红线划定" value="ecoRedLine"></el-option>
+                    </el-select>
+                  </div>
+                </el-collapse-item>
+              </el-collapse>
               <el-divider content-position="left">数据图层</el-divider>
               <div class="data-layers">
                 <el-checkbox-group v-model="soilLayers">
@@ -138,15 +292,66 @@
             
             <!-- 水质净化面板 -->
             <template v-else-if="item.type === '3'">
-              <el-divider content-position="left">水质净化设置</el-divider>
-              <div class="parameter-control">
-                <span>污染物类型</span>
-                <el-select v-model="pollutantType" placeholder="请选择">
-                  <el-option label="氮" value="nitrogen"></el-option>
-                  <el-option label="磷" value="phosphorus"></el-option>
-                  <el-option label="重金属" value="heavyMetal"></el-option>
-                </el-select>
-              </div>
+              <el-collapse v-model="activeEcoService">
+                <el-collapse-item title="潜在供给" name="potentialSupply3">
+                  <div class="parameter-control">
+                    <span>服务指标</span>
+                    <el-select v-model="indicators3" placeholder="请选择指标">
+                      <el-option label="氮净化能力" value="nitrogenPurification"></el-option>
+                      <el-option label="磷净化能力" value="phosphorusPurification"></el-option>
+                      <el-option label="重金属净化能力" value="metalPurification"></el-option>
+                    </el-select>
+                  </div>
+                  <div class="parameter-control">
+                    <span>时间尺度</span>
+                    <el-radio-group v-model="timeScale3">
+                      <el-radio label="month">月尺度</el-radio>
+                      <el-radio label="year">年尺度</el-radio>
+                    </el-radio-group>
+                  </div>
+                  <div class="parameter-control">
+                    <span>空间格局</span>
+                    <el-radio-group v-model="spatialPattern3">
+                      <el-radio label="max">最高值</el-radio>
+                      <el-radio label="min">最低值</el-radio>
+                      <el-radio label="mode">众数</el-radio>
+                    </el-radio-group>
+                  </div>
+                </el-collapse-item>
+                <el-collapse-item title="实际利用" name="actualUse3">
+                  <div class="parameter-control">
+                    <span>水产养殖户</span>
+                    <el-input v-model="benefit3.aquaculture" placeholder="请输入受益量"></el-input>
+                  </div>
+                  <div class="parameter-control">
+                    <span>饮用水供应商</span>
+                    <el-input v-model="benefit3.drinking" placeholder="请输入受益量"></el-input>
+                  </div>
+                </el-collapse-item>
+                <el-collapse-item title="供给赤字" name="deficit3">
+                  <div class="chart-container">
+                    <div ref="deficit3Chart" style="width: 100%; height: 300px;"></div>
+                  </div>
+                </el-collapse-item>
+                <el-collapse-item title="供需匹配" name="matching3">
+                  <div class="parameter-control">
+                    <span>供给优化</span>
+                    <el-select v-model="supplyOptimization3" placeholder="请选择优化方案">
+                      <el-option label="湿地建设" value="wetland"></el-option>
+                      <el-option label="植被缓冲带" value="buffer"></el-option>
+                      <el-option label="生物过滤" value="biofilter"></el-option>
+                    </el-select>
+                  </div>
+                  <div class="parameter-control">
+                    <span>需求调控</span>
+                    <el-select v-model="demandControl3" placeholder="请选择调控方案">
+                      <el-option label="污染物排放控制" value="emission"></el-option>
+                      <el-option label="污水处理能力提升" value="treatment"></el-option>
+                      <el-option label="清洁生产技术" value="cleanProduction"></el-option>
+                    </el-select>
+                  </div>
+                </el-collapse-item>
+              </el-collapse>
               <el-divider content-position="left">数据图层</el-divider>
               <div class="data-layers">
                 <el-checkbox-group v-model="waterQualityLayers">
@@ -159,15 +364,66 @@
             
             <!-- 防风固沙面板 -->
             <template v-else-if="item.type === '4'">
-              <el-divider content-position="left">防风固沙设置</el-divider>
-              <div class="parameter-control">
-                <span>风蚀模拟周期</span>
-                <el-radio-group v-model="windErosionPeriod">
-                  <el-radio label="month">月尺度</el-radio>
-                  <el-radio label="season">季节尺度</el-radio>
-                  <el-radio label="year">年尺度</el-radio>
-                </el-radio-group>
-              </div>
+              <el-collapse v-model="activeEcoService">
+                <el-collapse-item title="潜在供给" name="potentialSupply4">
+                  <div class="parameter-control">
+                    <span>服务指标</span>
+                    <el-select v-model="indicators4" placeholder="请选择指标">
+                      <el-option label="沙尘通量" value="sandFlux"></el-option>
+                      <el-option label="植被阻滞能力" value="vegetationBarrier"></el-option>
+                      <el-option label="土壤稳定性" value="soilStability"></el-option>
+                    </el-select>
+                  </div>
+                  <div class="parameter-control">
+                    <span>时间尺度</span>
+                    <el-radio-group v-model="timeScale4">
+                      <el-radio label="month">月尺度</el-radio>
+                      <el-radio label="year">年尺度</el-radio>
+                    </el-radio-group>
+                  </div>
+                  <div class="parameter-control">
+                    <span>空间格局</span>
+                    <el-radio-group v-model="spatialPattern4">
+                      <el-radio label="max">最高值</el-radio>
+                      <el-radio label="min">最低值</el-radio>
+                      <el-radio label="mode">众数</el-radio>
+                    </el-radio-group>
+                  </div>
+                </el-collapse-item>
+                <el-collapse-item title="实际利用" name="actualUse4">
+                  <div class="parameter-control">
+                    <span>林业管理者</span>
+                    <el-input v-model="benefit4.forestry" placeholder="请输入受益量"></el-input>
+                  </div>
+                  <div class="parameter-control">
+                    <span>城市居民</span>
+                    <el-input v-model="benefit4.urban" placeholder="请输入受益量"></el-input>
+                  </div>
+                </el-collapse-item>
+                <el-collapse-item title="供给赤字" name="deficit4">
+                  <div class="chart-container">
+                    <div ref="deficit4Chart" style="width: 100%; height: 300px;"></div>
+                  </div>
+                </el-collapse-item>
+                <el-collapse-item title="供需匹配" name="matching4">
+                  <div class="parameter-control">
+                    <span>供给优化</span>
+                    <el-select v-model="supplyOptimization4" placeholder="请选择优化方案">
+                      <el-option label="防护林建设" value="shelter"></el-option>
+                      <el-option label="草方格固沙" value="grassSquare"></el-option>
+                      <el-option label="沙漠治理" value="desertControl"></el-option>
+                    </el-select>
+                  </div>
+                  <div class="parameter-control">
+                    <span>需求调控</span>
+                    <el-select v-model="demandControl4" placeholder="请选择调控方案">
+                      <el-option label="放牧强度控制" value="grazing"></el-option>
+                      <el-option label="土地合理利用" value="landUse"></el-option>
+                      <el-option label="城市绿化" value="urbanGreen"></el-option>
+                    </el-select>
+                  </div>
+                </el-collapse-item>
+              </el-collapse>
               <el-divider content-position="left">数据图层</el-divider>
               <div class="data-layers">
                 <el-checkbox-group v-model="windSandLayers">
@@ -180,16 +436,66 @@
             
             <!-- 洪水调蓄面板 -->
             <template v-else-if="item.type === '5'">
-              <el-divider content-position="left">洪水调蓄设置</el-divider>
-              <div class="parameter-control">
-                <span>洪水重现期</span>
-                <el-select v-model="floodReturnPeriod" placeholder="请选择">
-                  <el-option label="5年一遇" value="5"></el-option>
-                  <el-option label="10年一遇" value="10"></el-option>
-                  <el-option label="20年一遇" value="20"></el-option>
-                  <el-option label="50年一遇" value="50"></el-option>
-                </el-select>
-              </div>
+              <el-collapse v-model="activeEcoService">
+                <el-collapse-item title="潜在供给" name="potentialSupply5">
+                  <div class="parameter-control">
+                    <span>服务指标</span>
+                    <el-select v-model="indicators5" placeholder="请选择指标">
+                      <el-option label="洪峰削减" value="peakReduction"></el-option>
+                      <el-option label="洪水滞留时间" value="retentionTime"></el-option>
+                      <el-option label="调蓄容量" value="storageCapacity"></el-option>
+                    </el-select>
+                  </div>
+                  <div class="parameter-control">
+                    <span>时间尺度</span>
+                    <el-radio-group v-model="timeScale5">
+                      <el-radio label="month">月尺度</el-radio>
+                      <el-radio label="year">年尺度</el-radio>
+                    </el-radio-group>
+                  </div>
+                  <div class="parameter-control">
+                    <span>空间格局</span>
+                    <el-radio-group v-model="spatialPattern5">
+                      <el-radio label="max">最高值</el-radio>
+                      <el-radio label="min">最低值</el-radio>
+                      <el-radio label="mode">众数</el-radio>
+                    </el-radio-group>
+                  </div>
+                </el-collapse-item>
+                <el-collapse-item title="实际利用" name="actualUse5">
+                  <div class="parameter-control">
+                    <span>防洪部门</span>
+                    <el-input v-model="benefit5.floodControl" placeholder="请输入受益量"></el-input>
+                  </div>
+                  <div class="parameter-control">
+                    <span>沿河居民</span>
+                    <el-input v-model="benefit5.riverside" placeholder="请输入受益量"></el-input>
+                  </div>
+                </el-collapse-item>
+                <el-collapse-item title="供给赤字" name="deficit5">
+                  <div class="chart-container">
+                    <div ref="deficit5Chart" style="width: 100%; height: 300px;"></div>
+                  </div>
+                </el-collapse-item>
+                <el-collapse-item title="供需匹配" name="matching5">
+                  <div class="parameter-control">
+                    <span>供给优化</span>
+                    <el-select v-model="supplyOptimization5" placeholder="请选择优化方案">
+                      <el-option label="湿地恢复" value="wetland"></el-option>
+                      <el-option label="蓄滞洪区建设" value="floodStorage"></el-option>
+                      <el-option label="渗透面增加" value="permeableSurface"></el-option>
+                    </el-select>
+                  </div>
+                  <div class="parameter-control">
+                    <span>需求调控</span>
+                    <el-select v-model="demandControl5" placeholder="请选择调控方案">
+                      <el-option label="洪泛区管理" value="floodplain"></el-option>
+                      <el-option label="防洪工程" value="floodEngineering"></el-option>
+                      <el-option label="预警系统" value="earlyWarning"></el-option>
+                    </el-select>
+                  </div>
+                </el-collapse-item>
+              </el-collapse>
               <el-divider content-position="left">数据图层</el-divider>
               <div class="data-layers">
                 <el-checkbox-group v-model="floodLayers">
@@ -202,17 +508,66 @@
             
             <!-- 固碳服务面板 -->
             <template v-else-if="item.type === '6'">
-              <el-divider content-position="left">固碳服务设置</el-divider>
-              <div class="parameter-control">
-                <span>碳汇计算周期</span>
-                <el-date-picker
-                  v-model="carbonPeriod"
-                  type="daterange"
-                  range-separator="至"
-                  start-placeholder="开始日期"
-                  end-placeholder="结束日期">
-                </el-date-picker>
-              </div>
+              <el-collapse v-model="activeEcoService">
+                <el-collapse-item title="潜在供给" name="potentialSupply6">
+                  <div class="parameter-control">
+                    <span>服务指标</span>
+                    <el-select v-model="indicators6" placeholder="请选择指标">
+                      <el-option label="植被固碳量" value="vegetationCarbon"></el-option>
+                      <el-option label="土壤固碳量" value="soilCarbon"></el-option>
+                      <el-option label="碳通量" value="carbonFlux"></el-option>
+                    </el-select>
+                  </div>
+                  <div class="parameter-control">
+                    <span>时间尺度</span>
+                    <el-radio-group v-model="timeScale6">
+                      <el-radio label="month">月尺度</el-radio>
+                      <el-radio label="year">年尺度</el-radio>
+                    </el-radio-group>
+                  </div>
+                  <div class="parameter-control">
+                    <span>空间格局</span>
+                    <el-radio-group v-model="spatialPattern6">
+                      <el-radio label="max">最高值</el-radio>
+                      <el-radio label="min">最低值</el-radio>
+                      <el-radio label="mode">众数</el-radio>
+                    </el-radio-group>
+                  </div>
+                </el-collapse-item>
+                <el-collapse-item title="实际利用" name="actualUse6">
+                  <div class="parameter-control">
+                    <span>碳汇交易企业</span>
+                    <el-input v-model="benefit6.carbonTrading" placeholder="请输入受益量"></el-input>
+                  </div>
+                  <div class="parameter-control">
+                    <span>气候变化减缓</span>
+                    <el-input v-model="benefit6.climateChange" placeholder="请输入受益量"></el-input>
+                  </div>
+                </el-collapse-item>
+                <el-collapse-item title="供给赤字" name="deficit6">
+                  <div class="chart-container">
+                    <div ref="deficit6Chart" style="width: 100%; height: 300px;"></div>
+                  </div>
+                </el-collapse-item>
+                <el-collapse-item title="供需匹配" name="matching6">
+                  <div class="parameter-control">
+                    <span>供给优化</span>
+                    <el-select v-model="supplyOptimization6" placeholder="请选择优化方案">
+                      <el-option label="植树造林" value="afforestation"></el-option>
+                      <el-option label="土壤碳汇提升" value="soilCarbon"></el-option>
+                      <el-option label="保护性耕作" value="conservation"></el-option>
+                    </el-select>
+                  </div>
+                  <div class="parameter-control">
+                    <span>需求调控</span>
+                    <el-select v-model="demandControl6" placeholder="请选择调控方案">
+                      <el-option label="碳排放限额" value="emissionCap"></el-option>
+                      <el-option label="碳交易市场" value="carbonMarket"></el-option>
+                      <el-option label="清洁能源替代" value="cleanEnergy"></el-option>
+                    </el-select>
+                  </div>
+                </el-collapse-item>
+              </el-collapse>
               <el-divider content-position="left">数据图层</el-divider>
               <div class="data-layers">
                 <el-checkbox-group v-model="carbonLayers">
@@ -225,16 +580,66 @@
             
             <!-- 粮食供给面板 -->
             <template v-else-if="item.type === '7'">
-              <el-divider content-position="left">粮食供给设置</el-divider>
-              <div class="parameter-control">
-                <span>作物类型</span>
-                <el-select v-model="cropType" placeholder="请选择">
-                  <el-option label="小麦" value="wheat"></el-option>
-                  <el-option label="水稻" value="rice"></el-option>
-                  <el-option label="玉米" value="corn"></el-option>
-                  <el-option label="大豆" value="soybean"></el-option>
-                </el-select>
-              </div>
+              <el-collapse v-model="activeEcoService">
+                <el-collapse-item title="潜在供给" name="potentialSupply7">
+                  <div class="parameter-control">
+                    <span>服务指标</span>
+                    <el-select v-model="indicators7" placeholder="请选择指标">
+                      <el-option label="农田产量" value="cropYield"></el-option>
+                      <el-option label="土壤质量" value="soilQuality"></el-option>
+                      <el-option label="适宜性等级" value="suitabilityLevel"></el-option>
+                    </el-select>
+                  </div>
+                  <div class="parameter-control">
+                    <span>时间尺度</span>
+                    <el-radio-group v-model="timeScale7">
+                      <el-radio label="month">月尺度</el-radio>
+                      <el-radio label="year">年尺度</el-radio>
+                    </el-radio-group>
+                  </div>
+                  <div class="parameter-control">
+                    <span>空间格局</span>
+                    <el-radio-group v-model="spatialPattern7">
+                      <el-radio label="max">最高值</el-radio>
+                      <el-radio label="min">最低值</el-radio>
+                      <el-radio label="mode">众数</el-radio>
+                    </el-radio-group>
+                  </div>
+                </el-collapse-item>
+                <el-collapse-item title="实际利用" name="actualUse7">
+                  <div class="parameter-control">
+                    <span>农民</span>
+                    <el-input v-model="benefit7.farmers" placeholder="请输入受益量"></el-input>
+                  </div>
+                  <div class="parameter-control">
+                    <span>粮食加工企业</span>
+                    <el-input v-model="benefit7.processing" placeholder="请输入受益量"></el-input>
+                  </div>
+                </el-collapse-item>
+                <el-collapse-item title="供给赤字" name="deficit7">
+                  <div class="chart-container">
+                    <div ref="deficit7Chart" style="width: 100%; height: 300px;"></div>
+                  </div>
+                </el-collapse-item>
+                <el-collapse-item title="供需匹配" name="matching7">
+                  <div class="parameter-control">
+                    <span>供给优化</span>
+                    <el-select v-model="supplyOptimization7" placeholder="请选择优化方案">
+                      <el-option label="高产品种" value="highYield"></el-option>
+                      <el-option label="耕地质量提升" value="landQuality"></el-option>
+                      <el-option label="精准农业" value="precisionAgriculture"></el-option>
+                    </el-select>
+                  </div>
+                  <div class="parameter-control">
+                    <span>需求调控</span>
+                    <el-select v-model="demandControl7" placeholder="请选择调控方案">
+                      <el-option label="粮食节约" value="conservation"></el-option>
+                      <el-option label="食物多样化" value="diversity"></el-option>
+                      <el-option label="粮食进口" value="import"></el-option>
+                    </el-select>
+                  </div>
+                </el-collapse-item>
+              </el-collapse>
               <el-divider content-position="left">数据图层</el-divider>
               <div class="data-layers">
                 <el-checkbox-group v-model="foodLayers">
@@ -320,13 +725,6 @@ export default {
       showLegend: false,
       activeCategories: ['1'],
       categories: [
-        { name: 'Biodiversity and Nature Conservation' },
-        { name: 'Climate' },
-        { name: 'Elevation and Depth' },
-        { name: 'Geology and Soils' },
-        { name: 'Land Cover and Land Use' },
-        { name: 'Orthoimagery' },
-        { name: 'Population Distribution' }
       ],
       
       // 水源供给面板数据
@@ -357,8 +755,129 @@ export default {
       cropType: 'wheat',
       foodLayers: ['croplandLayer'],
       
-      // 新增的activeRegionInfo
-      activeRegionInfo: ['regionBasicInfo'],
+      // 新增的服务评估折叠面板控制
+      activeEcoService: ['potentialSupply0', 'potentialSupply1', 'potentialSupply2', 'potentialSupply3', 
+                        'potentialSupply4', 'potentialSupply5', 'potentialSupply6', 'potentialSupply7'],
+      
+      // 潜在供给相关数据 - 水源涵养
+      indicators0: 'baseflow',
+      timeScale0: 'year',
+      spatialPattern0: 'mode',
+      
+      // 实际利用相关数据 - 水源涵养
+      benefit0: {
+        downstream: '',
+        irrigation: ''
+      },
+      
+      // 供需匹配相关数据 - 水源涵养
+      supplyOptimization0: 'vegetation',
+      demandControl0: 'quota',
+      
+      // 潜在供给相关数据 - 水源供给
+      indicators1: 'runoff',
+      timeScale1: 'year',
+      spatialPattern1: 'max',
+      
+      // 实际利用相关数据 - 水源供给
+      benefit1: {
+        urban: '',
+        industry: ''
+      },
+      
+      // 供需匹配相关数据 - 水源供给
+      supplyOptimization1: 'protection',
+      demandControl1: 'efficiency',
+      
+      // 潜在供给相关数据 - 土壤保持
+      indicators2: 'erosion',
+      timeScale2: 'year',
+      spatialPattern2: 'min',
+      
+      // 实际利用相关数据 - 土壤保持
+      benefit2: {
+        farmers: '',
+        reservoir: ''
+      },
+      
+      // 供需匹配相关数据 - 土壤保持
+      supplyOptimization2: 'vegetation',
+      demandControl2: 'farming',
+      
+      // 潜在供给相关数据 - 水质净化
+      indicators3: 'nitrogenPurification',
+      timeScale3: 'year',
+      spatialPattern3: 'max',
+      
+      // 实际利用相关数据 - 水质净化
+      benefit3: {
+        aquaculture: '',
+        drinking: ''
+      },
+      
+      // 供需匹配相关数据 - 水质净化
+      supplyOptimization3: 'wetland',
+      demandControl3: 'emission',
+      
+      // 潜在供给相关数据 - 防风固沙
+      indicators4: 'sandFlux',
+      timeScale4: 'year',
+      spatialPattern4: 'min',
+      
+      // 实际利用相关数据 - 防风固沙
+      benefit4: {
+        forestry: '',
+        urban: ''
+      },
+      
+      // 供需匹配相关数据 - 防风固沙
+      supplyOptimization4: 'shelter',
+      demandControl4: 'grazing',
+      
+      // 潜在供给相关数据 - 洪水调蓄
+      indicators5: 'peakReduction',
+      timeScale5: 'year',
+      spatialPattern5: 'max',
+      
+      // 实际利用相关数据 - 洪水调蓄
+      benefit5: {
+        floodControl: '',
+        riverside: ''
+      },
+      
+      // 供需匹配相关数据 - 洪水调蓄
+      supplyOptimization5: 'wetland',
+      demandControl5: 'floodplain',
+      
+      // 潜在供给相关数据 - 固碳服务
+      indicators6: 'vegetationCarbon',
+      timeScale6: 'year',
+      spatialPattern6: 'max',
+      
+      // 实际利用相关数据 - 固碳服务
+      benefit6: {
+        carbonTrading: '',
+        climateChange: ''
+      },
+      
+      // 供需匹配相关数据 - 固碳服务
+      supplyOptimization6: 'afforestation',
+      demandControl6: 'emissionCap',
+      
+      // 潜在供给相关数据 - 粮食供给
+      indicators7: 'cropYield',
+      timeScale7: 'year',
+      spatialPattern7: 'max',
+      
+      // 实际利用相关数据 - 粮食供给
+      benefit7: {
+        farmers: '',
+        processing: ''
+      },
+      
+      // 供需匹配相关数据 - 粮食供给
+      supplyOptimization7: 'highYield',
+      demandControl7: 'conservation',
     };
   },
   created() {
@@ -411,20 +930,15 @@ export default {
         if (response && response.data) {
           this.serviceTypeOptions = response.data;
           
-          // 添加更详细的日志信息
-          console.log("加载的服务类型字典数据:", response.data);
-          
           // 检查字典项的属性结构
           if (this.serviceTypeOptions.length > 0) {
             const firstItem = this.serviceTypeOptions[0];
-            console.log("字典项结构示例:", firstItem);
-            console.log("可用的属性:", Object.keys(firstItem));
             
             // 检查可能的图标属性
             if (firstItem.listClass) {
-              console.log("使用 listClass 属性获取图标");
+              // 使用 listClass 属性
             } else if (firstItem.list_class) {
-              console.log("使用 list_class 属性获取图标");
+              // 使用 list_class 属性
               
               // 如果确实是list_class，修正所有项的属性
               this.serviceTypeOptions.forEach(item => {
@@ -432,8 +946,6 @@ export default {
                   item.listClass = item.list_class;
                 }
               });
-            } else {
-              console.warn("未找到图标属性，可能需要手动映射");
             }
           }
           
@@ -442,10 +954,10 @@ export default {
             this.generateMenuItems();
           }
         } else {
-          console.error("加载服务类型字典失败");
+          this.$message.error("加载服务类型字典失败");
         }
       }).catch(error => {
-        console.error("获取服务类型字典失败:", error);
+        this.$message.error("获取服务类型字典失败");
       });
     },
     
@@ -456,7 +968,6 @@ export default {
         if (response && response.code === 200 && response.data) {
           this.regionDetail = response.data;
           this.regionInfo.regionName = response.data.regionName;
-          console.log('获取到区域详细信息:', this.regionDetail);
           
           // 如果服务类型字典已加载，则生成菜单
           if (this.serviceTypeOptions.length > 0) {
@@ -467,7 +978,6 @@ export default {
         }
         this.loading = false;
       }).catch(error => {
-        console.error('获取区域详细信息错误:', error);
         this.$message.error('获取区域详细信息失败');
         this.loading = false;
       });
@@ -479,17 +989,16 @@ export default {
         if (response && response.code === 200 && response.rows) {
           // 获取服务类型数组
           this.serviceTypes = response.rows.map(item => item.serviceType);
-          console.log('获取到区域服务类型ID:', this.serviceTypes);
           
           // 如果字典已加载，则生成菜单
           if (this.serviceTypeOptions.length > 0) {
             this.generateMenuItems();
           }
         } else {
-          console.warn('获取区域服务类型失败或无服务类型');
+          this.$message.warning('获取区域服务类型失败或无服务类型');
         }
       }).catch(error => {
-        console.error('获取区域服务类型错误:', error);
+        this.$message.error('获取区域服务类型失败');
       });
     },
     
@@ -556,7 +1065,6 @@ export default {
       }
       
       this.menuItems = items;
-      console.log('生成的菜单项:', this.menuItems);
     },
     
     // 创建菜单项 - 修改以确保正确使用字典数据中的图标
@@ -582,10 +1090,6 @@ export default {
       // 确保typeId是字符串，以便正确比较
       const typeIdStr = String(typeId);
       
-      // 添加详细的调试日志
-      console.log("当前服务类型字典数据:", this.serviceTypeOptions);
-      console.log(`查找服务类型ID: ${typeIdStr}`);
-      
       // 从字典数据中查找对应的服务类型项
       const dictItem = this.serviceTypeOptions.find(item => String(item.dictValue) === typeIdStr);
       
@@ -593,21 +1097,16 @@ export default {
       let icon = 'el-icon-menu'; // 默认图标
       
       if (dictItem) {
-        console.log("找到字典项:", dictItem);
-        
         // 检查所有可能的图标属性名称
         if (dictItem.listClass) {
           icon = dictItem.listClass;
-          console.log(`使用listClass: ${icon}`);
         } 
         else if (dictItem.list_class) {
           icon = dictItem.list_class;
-          console.log(`使用list_class: ${icon}`);
         }
         // 可能的其他属性名称，如cssClass等
         else if (dictItem.cssClass) {
           icon = dictItem.cssClass;
-          console.log(`使用cssClass: ${icon}`);
         }
         else {
           // 硬编码备选图标映射，以防字典数据属性不一致
@@ -624,14 +1123,9 @@ export default {
           
           if (iconMap[typeIdStr]) {
             icon = iconMap[typeIdStr];
-            console.log(`使用备选图标: ${icon}`);
           }
         }
-      } else {
-        console.warn(`未找到ID为 ${typeIdStr} 的服务类型字典项`);
       }
-      
-      console.log(`最终使用的图标: ${icon}`);
       
       return {
         nameTop: nameTop,
@@ -820,7 +1314,7 @@ export default {
   .panel-content {
     flex: 1;
     overflow-y: auto;
-    padding: 8px 15px;
+    padding: 4px 8px 8px;
 
     &::-webkit-scrollbar {
       width: 6px;
@@ -844,6 +1338,8 @@ export default {
       span {
         display: block;
         margin-bottom: 5px;
+        color: #336699;
+        font-weight: bold;
       }
     }
 
@@ -856,20 +1352,20 @@ export default {
     }
 
     .panel-specific-content {
-      margin-top: 10px;
+      margin-top: 5px;
       
       .el-divider {
         margin: 12px 0;
       }
       
       .parameter-control {
-        margin: 15px 0;
+        margin: 8px 0;
         
         span {
           display: block;
-          margin-bottom: 8px;
-          color: #606266;
-          font-weight: 500;
+          margin-bottom: 6px;
+          color: #336699;
+          font-weight: bold;
         }
       }
       
@@ -1003,7 +1499,8 @@ export default {
 <style lang="scss">
 /* Override collapse panel styles to match the dark blue design */
 .panel-content .layer-list .el-collapse-item__header,
-.panel-content .region-info-collapse .el-collapse-item__header {
+.panel-content .region-info-collapse .el-collapse-item__header,
+.panel-content .el-collapse .el-collapse-item__header {
   background-color: #34495e !important;
   color: white !important;
   border-bottom: 1px solid white !important;
@@ -1016,7 +1513,8 @@ export default {
 }
 
 .panel-content .layer-list .el-collapse-item__arrow,
-.panel-content .region-info-collapse .el-collapse-item__arrow {
+.panel-content .region-info-collapse .el-collapse-item__arrow,
+.panel-content .el-collapse .el-collapse-item__arrow {
   color: white !important;
   margin: 0 !important;
   position: absolute !important;
@@ -1029,18 +1527,96 @@ export default {
 }
 
 .panel-content .layer-list .el-collapse-item__header.is-active .el-collapse-item__arrow,
-.panel-content .region-info-collapse .el-collapse-item__header.is-active .el-collapse-item__arrow {
+.panel-content .region-info-collapse .el-collapse-item__header.is-active .el-collapse-item__arrow,
+.panel-content .el-collapse .el-collapse-item__header.is-active .el-collapse-item__arrow {
   transform: translateY(-50%) rotate(0deg) !important; /* 保持垂直居中的transform */
 }
 
 .panel-content .layer-list .el-collapse,
-.panel-content .region-info-collapse .el-collapse {
+.panel-content .region-info-collapse .el-collapse,
+.panel-content .el-collapse {
   border-top: none !important;
   border-bottom: none !important;
 }
 
 .panel-content .layer-list .el-collapse-item__wrap,
-.panel-content .region-info-collapse .el-collapse-item__wrap {
+.panel-content .region-info-collapse .el-collapse-item__wrap,
+.panel-content .el-collapse .el-collapse-item__wrap {
   border-bottom: none !important;
+}
+
+/* 添加供给赤字图表的样式 */
+.chart-container {
+  width: 100%;
+  height: 300px;
+  background-color: #f5f7fa;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 确保所有折叠项使用统一的样式 */
+.panel-specific-content .el-collapse .el-collapse-item__header {
+  background-color: #34495e !important;
+  color: white !important;
+  border-bottom: 1px solid white !important;
+}
+
+.panel-specific-content .el-collapse .el-collapse-item__content {
+  padding: 3px 8px 15px !important;
+  background-color: #f8f9fc !important;
+}
+</style>
+
+<!-- 额外的折叠项内容间距样式 -->
+<style lang="scss">
+.panel-specific-content .el-collapse .el-collapse-item__content {
+  padding: 3px 8px 15px !important;
+  background-color: #f8f9fc !important;
+}
+
+/* 优化折叠项内第一个元素的间距 */
+.parameter-control:first-child {
+  margin-top: 4px !important;
+}
+
+/* 确保折叠面板内容区域紧凑 */
+.el-collapse-item__content > .parameter-control:first-child {
+  margin-top: 4px !important;
+}
+
+/* 进一步优化所有折叠项内容区域与标题的间距 */
+.el-collapse-item__content > div:first-child {
+  margin-top: 2px !important;
+}
+
+/* 设置折叠项内容的背景色和减小内边距 */
+.panel-specific-content .el-collapse .el-collapse-item__content {
+  padding: 3px 8px 15px !important;
+  background-color: #f8f9fc !important;
+}
+
+/* 调整折叠项标题的左内边距 */
+.panel-specific-content .el-collapse .el-collapse-item__header {
+  padding: 0 35px 0 8px !important;
+}
+
+/* 为面板中所有标题文本设置蓝色样式 */
+.panel-content span.label,
+.panel-content .search-box label,
+.panel-content .el-form-item__label {
+  color: #409EFF !important;
+}
+
+/* 确保单选框和复选框的标签文本为黑色 */
+.panel-content .el-radio__label,
+.panel-content .el-checkbox__label {
+  color: #606266 !important;  /* 设置为Element UI默认的文本颜色 */
+}
+
+/* 确保开关组件的标签为黑色 */
+.panel-content .el-switch__label {
+  color: #606266 !important;
 }
 </style>
