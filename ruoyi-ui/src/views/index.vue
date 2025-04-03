@@ -21,7 +21,7 @@
 
     <el-row style="margin-top: 20px; margin-bottom: 20px;">
       <el-col :span="24" style="text-align: center;">
-        <el-button type="primary" size="large" @click="handleStartUsing">开始使用</el-button>
+        <el-button type="primary" size="large" @click="handleStartUsing" style="background-color: #336699; border-color: #336699;">开始使用</el-button>
       </el-col>
     </el-row>
   </div>
@@ -45,7 +45,7 @@ export default {
           flood_regulation: "洪水调蓄",
           windbreak_sand: "防风固沙",
           carbon_fixation: "固碳服务",
-          climate_regulation: "气候调节"
+          climate_regulation: "食物供给"
         },
         {
           attribute: "服务定义",
@@ -56,7 +56,7 @@ export default {
           flood_regulation: "洪峰淹没面积，持续时间",
           windbreak_sand: "沙尘通量",
           carbon_fixation: "植被固碳量",
-          climate_regulation: "气候调节"
+          climate_regulation: "干物质量"
         },
         {
           attribute: "物理模型",
@@ -67,7 +67,7 @@ export default {
           flood_regulation: "HSPF+DELFT3D",
           windbreak_sand: "RWEQ",
           carbon_fixation: "LPJ",
-          climate_regulation: "WRF"
+          climate_regulation: "DSSAT"
         },
         {
           attribute: "物理指标",
@@ -78,7 +78,7 @@ export default {
           flood_regulation: "洪峰淹没面积，持续时间",
           windbreak_sand: "沙尘通量",
           carbon_fixation: "植被固碳量",
-          climate_regulation: "气候调节"
+          climate_regulation: "干物质量"
         },
         {
           attribute: "参数率定方法",

@@ -66,11 +66,14 @@
         <div class="panel-content">
           <!-- 通用区域信息显示 - 所有面板都显示 -->
           <template v-if="regionInfo.regionId">
-            <el-divider content-position="left">区域信息</el-divider>
-            <el-descriptions :column="1" border>
-              <el-descriptions-item label="区域ID">{{ regionInfo.regionId }}</el-descriptions-item>
-              <el-descriptions-item label="区域名称">{{ regionInfo.regionName }}</el-descriptions-item>
-            </el-descriptions>
+            <el-collapse v-model="activeRegionInfo" class="region-info-collapse">
+              <el-collapse-item title="基本信息" name="regionBasicInfo">
+                <el-descriptions :column="1" border>
+                  <el-descriptions-item label="区域ID">{{ regionInfo.regionId }}</el-descriptions-item>
+                  <el-descriptions-item label="区域名称">{{ regionInfo.regionName }}</el-descriptions-item>
+                </el-descriptions>
+              </el-collapse-item>
+            </el-collapse>
           </template>
           
           <!-- 动态生成面板内容 -->
@@ -353,6 +356,9 @@ export default {
       // 粮食供给面板数据
       cropType: 'wheat',
       foodLayers: ['croplandLayer'],
+      
+      // 新增的activeRegionInfo
+      activeRegionInfo: ['regionBasicInfo'],
     };
   },
   created() {
@@ -814,7 +820,7 @@ export default {
   .panel-content {
     flex: 1;
     overflow-y: auto;
-    padding: 15px;
+    padding: 8px 15px;
 
     &::-webkit-scrollbar {
       width: 6px;
@@ -843,6 +849,64 @@ export default {
 
     .layer-list {
       margin-top: 15px;
+    }
+
+    .region-info-collapse {
+      margin-bottom: 10px;
+    }
+
+    .panel-specific-content {
+      margin-top: 10px;
+      
+      .el-divider {
+        margin: 12px 0;
+      }
+      
+      .parameter-control {
+        margin: 15px 0;
+        
+        span {
+          display: block;
+          margin-bottom: 8px;
+          color: #606266;
+          font-weight: 500;
+        }
+      }
+      
+      .data-layers {
+        margin: 15px 0;
+        padding: 10px;
+        background-color: #f8f8f8;
+        border-radius: 4px;
+        
+        .el-checkbox-group {
+          display: flex;
+          flex-direction: column;
+          
+          .el-checkbox {
+            margin-left: 0;
+            margin-bottom: 8px;
+            
+            &:last-child {
+              margin-bottom: 0;
+            }
+          }
+        }
+      }
+      
+      .el-divider__text {
+        font-size: 15px;
+        font-weight: 600;
+        color: #409EFF;
+      }
+      
+      .el-select {
+        width: 100%;
+      }
+      
+      .el-date-editor {
+        width: 100%;
+      }
     }
   }
 }
@@ -933,54 +997,50 @@ export default {
   display: flex;
   flex-wrap: wrap;
 }
+</style>
 
-.panel-specific-content {
-  margin-top: 15px;
-  
-  .parameter-control {
-    margin: 15px 0;
-    
-    span {
-      display: block;
-      margin-bottom: 8px;
-      color: #606266;
-      font-weight: 500;
-    }
-  }
-  
-  .data-layers {
-    margin: 15px 0;
-    padding: 10px;
-    background-color: #f8f8f8;
-    border-radius: 4px;
-    
-    .el-checkbox-group {
-      display: flex;
-      flex-direction: column;
-      
-      .el-checkbox {
-        margin-left: 0;
-        margin-bottom: 8px;
-        
-        &:last-child {
-          margin-bottom: 0;
-        }
-      }
-    }
-  }
-  
-  .el-divider__text {
-    font-size: 15px;
-    font-weight: 600;
-    color: #409EFF;
-  }
-  
-  .el-select {
-    width: 100%;
-  }
-  
-  .el-date-editor {
-    width: 100%;
-  }
+<!-- Global styles for overriding Element UI collapse panels -->
+<style lang="scss">
+/* Override collapse panel styles to match the dark blue design */
+.panel-content .layer-list .el-collapse-item__header,
+.panel-content .region-info-collapse .el-collapse-item__header {
+  background-color: #34495e !important;
+  color: white !important;
+  border-bottom: 1px solid white !important;
+  height: 40px !important;
+  line-height: 40px !important;
+  font-weight: 400 !important;
+  padding: 0 35px 0 12px !important; /* 右侧增加padding以确保箭头有足够空间 */
+  border-radius: 0 !important;
+  position: relative !important;
+}
+
+.panel-content .layer-list .el-collapse-item__arrow,
+.panel-content .region-info-collapse .el-collapse-item__arrow {
+  color: white !important;
+  margin: 0 !important;
+  position: absolute !important;
+  right: 12px !important; /* 调整箭头右侧间距 */
+  top: 50% !important; /* 垂直居中 */
+  transform: translateY(-50%) rotate(-90deg) !important; /* 添加垂直居中的transform */
+  font-size: 16px !important; /* 增大箭头尺寸 */
+  transition: transform 0.3s !important;
+  z-index: 2 !important; /* 确保箭头在最上层 */
+}
+
+.panel-content .layer-list .el-collapse-item__header.is-active .el-collapse-item__arrow,
+.panel-content .region-info-collapse .el-collapse-item__header.is-active .el-collapse-item__arrow {
+  transform: translateY(-50%) rotate(0deg) !important; /* 保持垂直居中的transform */
+}
+
+.panel-content .layer-list .el-collapse,
+.panel-content .region-info-collapse .el-collapse {
+  border-top: none !important;
+  border-bottom: none !important;
+}
+
+.panel-content .layer-list .el-collapse-item__wrap,
+.panel-content .region-info-collapse .el-collapse-item__wrap {
+  border-bottom: none !important;
 }
 </style>
