@@ -7,8 +7,7 @@
       <div class="panel-header">
         <span>区域详细信息</span>
         <div class="panel-controls">
-          <i class="el-icon-arrow-up" v-if="!detailCollapsed" @click="detailCollapsed = true"></i>
-          <i class="el-icon-arrow-down" v-else @click="detailCollapsed = false"></i>
+          <i :class="detailCollapsed ? 'el-icon-arrow-down' : 'el-icon-arrow-up'" @click="detailCollapsed = !detailCollapsed"></i>
         </div>
       </div>
       <div v-if="!detailCollapsed" class="panel-body">
@@ -55,12 +54,12 @@
       </div>
     </div>
     
-    <!-- 图例面板 -->
+    <!-- 图例面板 - 使用计算属性 -->
     <div class="legend-panel" v-show="showLegend && activePanelIndex !== null">
       <div class="legend-header">{{ activePanelIndex !== null && menuItems[activePanelIndex] ? menuItems[activePanelIndex].fullName : '图例' }}</div>
       <div class="legend-content">
         <div class="legend-gradient-container">
-          <div class="legend-gradient" :style="getLegendStyle()"></div>
+          <div class="legend-gradient" :style="legendStyle"></div>
           <div class="legend-values">
             <span class="min-value">低</span>
             <span class="max-value">高</span>
@@ -87,14 +86,14 @@
           </el-slider>
         </div>
         <div class="controls-row">
-          <div class="year-label start-year">1985</div>
+          <div class="year-label start-year">{{ minYear }}</div>
           <div class="center-controls">
             <div class="play-button" @click="toggleTimePlay">
               <i :class="isTimePlayActive ? 'el-icon-video-pause' : 'el-icon-video-play'"></i>
             </div>
             <div class="current-year">{{ currentYear }}</div>
           </div>
-          <div class="year-label end-year">2022</div>
+          <div class="year-label end-year">{{ maxYear }}</div>
         </div>
       </div>
     </div>
@@ -113,7 +112,7 @@
       </div>
     </div>
 
-    <!-- 控制面板区域 - 动态生成 -->
+    <!-- 控制面板区域 - 使用key确保正确重新渲染 -->
     <transition-group name="panel">
       <div v-for="(item, index) in menuItems" :key="item.type || item.fullName || index"
            v-if="activePanelIndex === index"
@@ -799,17 +798,13 @@ import Map from 'ol/Map';
 import View from 'ol/View';
 import TileLayer from 'ol/layer/Tile';
 import XYZ from 'ol/source/XYZ';
-import { fromLonLat } from 'ol/proj';
-// 导入获取区域详情和服务类型的API
+import { fromLonLat, transformExtent } from 'ol/proj';
+import { defaults as defaultControls } from 'ol/control';
+
 import { getProject_region } from "@/api/project/project_region";
 import { listProject_region_service } from "@/api/project/project_region_service";
-// 导入日期格式化函数
 import { parseTime } from "@/utils/ruoyi";
-// 导入图表库
 import * as echarts from 'echarts';
-// 导入用于地图控制的模块
-import { defaults as defaultControls } from 'ol/control';
-import { transformExtent } from 'ol/proj';
 
 export default {
   name: "Index",
@@ -818,30 +813,23 @@ export default {
       map: null,
       loading: false,
       
-      // 区域基本信息
       regionInfo: {
         regionId: null,
         regionName: null
       },
       
-      // 区域详细信息
       regionDetail: null,
       
-      // 区域服务类型
       serviceTypes: [],
       
-      // 字典数据
       serviceTypeOptions: [],
       
-      // 详细信息面板是否折叠
       detailCollapsed: true,
       
-      // 菜单项 - 将被动态生成
       menuItems: [],
       
       activePanelIndex: null,
       
-      // 图层控制相关数据
       searchQuery: '',
       opacity: 100,
       showLegend: true,
@@ -849,7 +837,6 @@ export default {
       categories: [
       ],
       
-      // 地图控制相关数据
       isFullscreen: false,
       currentBaseLayerIndex: 0,
       baseLayerOptions: [
@@ -860,178 +847,142 @@ export default {
       initialMapCenter: [116.397428, 39.90923],
       initialMapZoom: 7,
       
-      // 水源供给面板数据
       waterSupplyThreshold: 200,
       waterSupplyLayers: ['precipitationLayer', 'runoffLayer'],
       
-      // 土壤保持面板数据
       soilErosionRisk: 'medium',
       soilLayers: ['erosionLayer'],
       
-      // 水质净化面板数据
       pollutantType: 'nitrogen',
       waterQualityLayers: ['waterQualityLayer'],
       
-      // 防风固沙面板数据
       windErosionPeriod: 'year',
       windSandLayers: ['windSpeedLayer'],
       
-      // 洪水调蓄面板数据
       floodReturnPeriod: '20',
       floodLayers: ['floodAreaLayer'],
       
-      // 固碳服务面板数据
       carbonPeriod: [new Date(), new Date()],
       carbonLayers: ['vegetationCarbonLayer'],
       
-      // 粮食供给面板数据
       cropType: 'wheat',
       foodLayers: ['croplandLayer'],
       
-      // 新增的服务评估折叠面板控制
       activeEcoService: ['potentialSupply0', 'potentialSupply1', 'potentialSupply2', 'potentialSupply3', 
                         'potentialSupply4', 'potentialSupply5', 'potentialSupply6', 'potentialSupply7'],
       
-      // 潜在供给相关数据 - 水源涵养
       indicators0: 'baseflow',
       timeScale0: 'year',
       spatialPattern0: 'mode',
       
-      // 实际利用相关数据 - 水源涵养
       benefit0: {
         downstream: '',
         irrigation: ''
       },
       
-      // 供需匹配相关数据 - 水源涵养
       supplyOptimization0: 'vegetation',
       demandControl0: 'quota',
       
-      // 潜在供给相关数据 - 水源供给
       indicators1: 'runoff',
       timeScale1: 'year',
       spatialPattern1: 'max',
       
-      // 实际利用相关数据 - 水源供给
       benefit1: {
         urban: '',
         industry: ''
       },
       
-      // 供需匹配相关数据 - 水源供给
       supplyOptimization1: 'protection',
       demandControl1: 'efficiency',
       
-      // 潜在供给相关数据 - 土壤保持
       indicators2: 'erosion',
       timeScale2: 'year',
       spatialPattern2: 'min',
       
-      // 实际利用相关数据 - 土壤保持
       benefit2: {
         farmers: '',
         reservoir: ''
       },
       
-      // 供需匹配相关数据 - 土壤保持
       supplyOptimization2: 'vegetation',
       demandControl2: 'farming',
       
-      // 潜在供给相关数据 - 水质净化
       indicators3: 'nitrogenPurification',
       timeScale3: 'year',
       spatialPattern3: 'max',
       
-      // 实际利用相关数据 - 水质净化
       benefit3: {
         aquaculture: '',
         drinking: ''
       },
       
-      // 供需匹配相关数据 - 水质净化
       supplyOptimization3: 'wetland',
       demandControl3: 'emission',
       
-      // 潜在供给相关数据 - 防风固沙
       indicators4: 'sandFlux',
       timeScale4: 'year',
       spatialPattern4: 'min',
       
-      // 实际利用相关数据 - 防风固沙
       benefit4: {
         forestry: '',
         urban: ''
       },
       
-      // 供需匹配相关数据 - 防风固沙
       supplyOptimization4: 'shelter',
       demandControl4: 'grazing',
       
-      // 潜在供给相关数据 - 洪水调蓄
       indicators5: 'peakReduction',
       timeScale5: 'year',
       spatialPattern5: 'max',
       
-      // 实际利用相关数据 - 洪水调蓄
       benefit5: {
         floodControl: '',
         riverside: ''
       },
       
-      // 供需匹配相关数据 - 洪水调蓄
       supplyOptimization5: 'wetland',
       demandControl5: 'floodplain',
       
-      // 潜在供给相关数据 - 固碳服务
       indicators6: 'vegetationCarbon',
       timeScale6: 'year',
       spatialPattern6: 'max',
       
-      // 实际利用相关数据 - 固碳服务
       benefit6: {
         carbonTrading: '',
         climateChange: ''
       },
       
-      // 供需匹配相关数据 - 固碳服务
       supplyOptimization6: 'afforestation',
       demandControl6: 'emissionCap',
       
-      // 潜在供给相关数据 - 粮食供给
       indicators7: 'cropYield',
       timeScale7: 'year',
       spatialPattern7: 'max',
       
-      // 实际利用相关数据 - 粮食供给
       benefit7: {
         farmers: '',
         processing: ''
       },
       
-      // 供需匹配相关数据 - 粮食供给
       supplyOptimization7: 'highYield',
       demandControl7: 'conservation',
       
-      // 添加图表观察器
       chartObservers: [],
       
-      // 添加图表状态跟踪
       chartStatus: {
         0: false, 1: false, 2: false, 3: false,
         4: false, 5: false, 6: false, 7: false
       },
       
-      // 图表显示状态控制
       chartVisibility: {},
       
-      // 时间控制相关数据
       currentYear: 2022,
       isTimePlayActive: false,
       timePlayInterval: null,
       minYear: 1985,
       maxYear: 2022,
       yearStep: 1,
-      animationSpeed: 800, // 动画速度（毫秒）
+      animationSpeed: 800,
       timeMarks: {
         '1985': '1985',
         '1990': '1990',
@@ -1042,7 +993,20 @@ export default {
         '2015': '2015',
         '2020': '2020',
         '2022': '2022'
-      }
+      },
+      
+      // 添加缓存对象
+      dataCache: {
+        supplyData: {},
+        demandData: {},
+        regionDetails: {}
+      },
+
+      // 添加状态标记以避免重复操作
+      stateFlags: {
+        panelsInitialized: false,
+        mapRendered: false
+      },
     };
   },
   created() {
@@ -1050,10 +1014,19 @@ export default {
     const regionId = this.$route.query.regionId;
     if (regionId) {
       this.regionInfo.regionId = regionId;
-      this.fetchRegionDetail(regionId);
-      this.fetchRegionServiceTypes(regionId);
-      // 加载服务类型字典
-      this.loadServiceTypeDictionary();
+      // 并行请求数据提高加载速度
+      Promise.all([
+        this.fetchRegionDetail(regionId),
+        this.fetchRegionServiceTypes(regionId),
+        this.loadServiceTypeDictionary()
+      ]).then(() => {
+        // 数据加载完成后设置标志
+        this.$nextTick(() => {
+          this.stateFlags.panelsInitialized = true;
+        });
+      }).catch(error => {
+        this.$message.error('初始化数据失败：' + (error.message || '未知错误'));
+      });
     } else {
       this.$message.warning('未提供区域ID，无法加载区域信息');
     }
@@ -1062,79 +1035,130 @@ export default {
     this.initMap();
     this.initFullscreenEvents();
     
-    // 在组件挂载后，预加载菜单项并打开第一个面板
-    this.$nextTick(() => {
-      // 等待500ms确保初始渲染完成
-      setTimeout(() => {
-        if (this.menuItems.length > 0) {
-          console.log('打开第一个面板');
-          this.togglePanel(0);
-        }
-      }, 500);
-    });
+    // 添加全局resize事件处理
+    window.addEventListener('resize', this.handleResize);
+    
+    // 使用IntersectionObserver优化初始化逻辑
+    if ('IntersectionObserver' in window) {
+      this.setupLazyInitialization();
+    } else {
+      // 降级处理：在组件挂载后，预加载菜单项并打开第一个面板
+      this.$nextTick(() => {
+        // 等待500ms确保初始渲染完成
+        setTimeout(() => {
+          if (this.menuItems.length > 0) {
+            this.togglePanel(0);
+          }
+        }, 500);
+      });
+    }
   },
   beforeDestroy() {
-    // 清理可能存在的图表实例和事件监听器
+    // 优化资源清理逻辑，确保所有资源都被正确释放
+    
+    // 清理所有图表实例
     this.cleanupCharts();
     
-    // 清理时间动画定时器
+    // 清理时间动画相关资源
     this.stopTimeAnimation();
     
-    // 移除全屏事件监听器
+    // 清理定时器
+    if (this.resizeTimer) {
+      clearTimeout(this.resizeTimer);
+      this.resizeTimer = null;
+    }
+    if (this._yearChangeTimer) {
+      clearTimeout(this._yearChangeTimer);
+      this._yearChangeTimer = null;
+    }
+    if (this._chartRenderTimer) {
+      clearTimeout(this._chartRenderTimer);
+      this._chartRenderTimer = null;
+    }
+    
+    // 移除所有事件监听器
     document.removeEventListener('fullscreenchange', this.handleFullscreenChange);
     document.removeEventListener('webkitfullscreenchange', this.handleFullscreenChange);
     document.removeEventListener('mozfullscreenchange', this.handleFullscreenChange);
     document.removeEventListener('MSFullscreenChange', this.handleFullscreenChange);
-    
-    // 移除所有resize事件
     window.removeEventListener('resize', this.handleResize);
+    
+    // 销毁地图实例
+    if (this.map) {
+      // 先移除所有图层以确保它们的资源被释放
+      const layers = this.map.getLayers();
+      if (layers) {
+        const layerArray = layers.getArray();
+        for (let i = layerArray.length - 1; i >= 0; i--) {
+          this.map.removeLayer(layerArray[i]);
+        }
+      }
+      
+      // 分离目标元素
+      this.map.setTarget(null);
+      this.map = null;
+    }
   },
   methods: {
-    // 初始化地图
     initMap() {
+      // 创建基础图层 - 使用懒加载策略提高初始加载速度
+      const baseLayers = [
+        // 天地图影像底图
+        new TileLayer({
+          source: new XYZ({
+            url: 'https://t{0-7}.tianditu.gov.cn/DataServer?T=img_w&x={x}&y={y}&l={z}&tk=b079cd52cb89ffdc40073702b8cce199',
+            maxZoom: 18,
+            preload: 0, // 减少预加载，按需加载提高性能
+            transition: 200 // 添加切换动画但保持较短以避免性能损失
+          }),
+          preload: 0
+        }),
+        // 天地图标注图层
+        new TileLayer({
+          source: new XYZ({
+            url: 'https://t{0-7}.tianditu.gov.cn/DataServer?T=cia_w&x={x}&y={y}&l={z}&tk=b079cd52cb89ffdc40073702b8cce199',
+            maxZoom: 18,
+            preload: 0
+          }),
+          preload: 0
+        })
+      ];
+      
+      // 创建地图实例
       this.map = new Map({
         target: 'map',
-        controls: [], // 禁用默认控件，包括放大和缩小图标
-        layers: [
-          // 天地图影像底图
-          new TileLayer({
-            source: new XYZ({
-              url: 'https://t{0-7}.tianditu.gov.cn/DataServer?T=img_w&x={x}&y={y}&l={z}&tk=b079cd52cb89ffdc40073702b8cce199',
-              maxZoom: 18
-            })
-          }),
-          // 天地图标注图层
-          new TileLayer({
-            source: new XYZ({
-              url: 'https://t{0-7}.tianditu.gov.cn/DataServer?T=cia_w&x={x}&y={y}&l={z}&tk=b079cd52cb89ffdc40073702b8cce199',
-              maxZoom: 18
-            })
-          })
-        ],
+        controls: [],
+        layers: baseLayers,
         view: new View({
-          center: fromLonLat([116.397428, 39.90923]), // 北京坐标
-          zoom: 7
-        })
+          center: fromLonLat(this.initialMapCenter),
+          zoom: this.initialMapZoom,
+          minZoom: 4,
+          maxZoom: 19,
+          constrainResolution: true
+        }),
+        pixelRatio: window.devicePixelRatio > 1 ? 2 : 1, // 根据设备像素比优化渲染
+        loadTilesWhileInteracting: true,
+        loadTilesWhileAnimating: true
+      });
+      
+      // 设置视图渲染间隔以优化CPU使用
+      this.map.once('rendercomplete', () => {
+        console.log('地图加载完成');
+        this.map.updateSize(); // 确保地图尺寸正确
       });
     },
     
-    // 加载服务类型字典数据
     loadServiceTypeDictionary() {
       this.getDicts("sys_service_type").then(response => {
         if (response && response.data) {
           this.serviceTypeOptions = response.data;
           
-          // 检查字典项的属性结构
           if (this.serviceTypeOptions.length > 0) {
             const firstItem = this.serviceTypeOptions[0];
             
-            // 检查可能的图标属性
             if (firstItem.listClass) {
-              // 使用 listClass 属性
             } else if (firstItem.list_class) {
-              // 使用 list_class 属性
               
-              // 如果确实是list_class，修正所有项的属性
               this.serviceTypeOptions.forEach(item => {
                 if (item.list_class) {
                   item.listClass = item.list_class;
@@ -1143,7 +1167,6 @@ export default {
             }
           }
           
-          // 如果区域数据已加载，则生成菜单
           if (this.regionDetail || this.serviceTypes.length > 0) {
             this.generateMenuItems();
           }
@@ -1155,15 +1178,27 @@ export default {
       });
     },
     
-    // 获取区域详细信息
     fetchRegionDetail(regionId) {
+      // 检查缓存
+      if (this.dataCache.regionDetails[regionId]) {
+        this.regionDetail = this.dataCache.regionDetails[regionId];
+        this.regionInfo.regionName = this.regionDetail.regionName;
+        
+        if (this.serviceTypeOptions.length > 0) {
+          this.generateMenuItems();
+        }
+        return Promise.resolve();
+      }
+      
       this.loading = true;
-      getProject_region(regionId).then(response => {
+      return getProject_region(regionId).then(response => {
         if (response && response.code === 200 && response.data) {
           this.regionDetail = response.data;
           this.regionInfo.regionName = response.data.regionName;
           
-          // 如果服务类型字典已加载，则生成菜单
+          // 存入缓存
+          this.dataCache.regionDetails[regionId] = response.data;
+          
           if (this.serviceTypeOptions.length > 0) {
             this.generateMenuItems();
           }
@@ -1174,17 +1209,15 @@ export default {
       }).catch(error => {
         this.$message.error('获取区域详细信息失败');
         this.loading = false;
+        return Promise.reject(error);
       });
     },
     
-    // 获取区域服务类型
     fetchRegionServiceTypes(regionId) {
       listProject_region_service({ regionId: regionId }).then(response => {
         if (response && response.code === 200 && response.rows) {
-          // 获取服务类型数组
           this.serviceTypes = response.rows.map(item => item.serviceType);
           
-          // 如果字典已加载，则生成菜单
           if (this.serviceTypeOptions.length > 0) {
             this.generateMenuItems();
           }
@@ -1196,57 +1229,45 @@ export default {
       });
     },
     
-    // 根据服务类型生成菜单项
     generateMenuItems() {
       const items = [];
-      const processedTypes = new Set(); // 用于跟踪已处理的服务类型
+      const processedTypes = new Set();
       
-      // 首先，尝试从区域详情中的description字段获取服务类型
       if (this.regionDetail && this.regionDetail.description) {
         const typeNames = this.regionDetail.description.split('、');
         
         typeNames.forEach(typeName => {
-          // 在字典中查找匹配的服务类型
           const dictItem = this.serviceTypeOptions.find(item => item.dictLabel === typeName);
           
           if (dictItem) {
             const typeId = dictItem.dictValue;
             
-            // 如果已经处理过该类型，则跳过
             if (processedTypes.has(typeId)) return;
             
-            // 创建菜单项
             items.push(this.createMenuItem(dictItem.dictLabel, typeId));
             processedTypes.add(typeId);
           }
         });
       }
       
-      // 如果区域详情中没有找到服务类型，则使用从project_region_service获取的服务类型ID
       if (items.length === 0 && this.serviceTypes.length > 0) {
         this.serviceTypes.forEach(typeId => {
-          // 如果已经处理过该类型，则跳过
           if (processedTypes.has(typeId)) return;
           
-          // 在字典中查找匹配的服务类型
           const dictItem = this.serviceTypeOptions.find(item => item.dictValue === typeId);
           
           if (dictItem) {
-            // 创建菜单项
             items.push(this.createMenuItem(dictItem.dictLabel, typeId));
             processedTypes.add(typeId);
           }
         });
       }
       
-      // 如果仍然没有找到任何服务类型，添加默认项
       if (items.length === 0) {
-        // 尝试使用第一个字典项作为默认值
         if (this.serviceTypeOptions.length > 0) {
           const defaultType = this.serviceTypeOptions[0];
           items.push(this.createMenuItem(defaultType.dictLabel, defaultType.dictValue));
         } else {
-          // 如果字典也为空，创建一个硬编码的默认项
           items.push({
             nameTop: '水源',
             nameBottom: '涵养',
@@ -1261,9 +1282,7 @@ export default {
       this.menuItems = items;
     },
     
-    // 创建菜单项 - 修改以确保正确使用字典数据中的图标
     createMenuItem(typeName, typeId) {
-      // 智能拆分名称为上下两部分
       let nameTop, nameBottom;
       
       if (typeName.length <= 2) {
@@ -1281,29 +1300,23 @@ export default {
         nameBottom = typeName.substring(midPoint);
       }
       
-      // 确保typeId是字符串，以便正确比较
       const typeIdStr = String(typeId);
       
-      // 从字典数据中查找对应的服务类型项
       const dictItem = this.serviceTypeOptions.find(item => String(item.dictValue) === typeIdStr);
       
-      // 获取图标配置
-      let icon = 'el-icon-menu'; // 默认图标
+      let icon = 'el-icon-menu';
       
       if (dictItem) {
-        // 检查所有可能的图标属性名称
         if (dictItem.listClass) {
           icon = dictItem.listClass;
         } 
         else if (dictItem.list_class) {
           icon = dictItem.list_class;
         }
-        // 可能的其他属性名称，如cssClass等
         else if (dictItem.cssClass) {
           icon = dictItem.cssClass;
         }
         else {
-          // 硬编码备选图标映射，以防字典数据属性不一致
           const iconMap = {
             '0': 'el-icon-s-grid',       // 水源涵养
             '1': 'el-icon-s-marketing',  // 水源供给
@@ -1330,43 +1343,62 @@ export default {
       };
     },
     
-    // 格式化日期
     parseTime,
     
-    // 切换控制面板
     togglePanel(index) {
+      // 性能优化：如果点击的是已经激活的面板，则关闭它
       if (this.activePanelIndex === index) {
         this.activePanelIndex = null;
-      } else {
-        this.activePanelIndex = index;
-      }
-    },
-    
-    // 简化的图表清理方法
-    cleanupCharts() {
-      // 基于服务类型清理图表，而不是固定索引
-      if (this.menuItems && this.menuItems.length) {
-        // 先清理已知类型的图表
-        this.menuItems.forEach(item => {
-          if (item.type) {
-            const chartDom = document.getElementById(`simpleChart${item.type}`);
-            if (chartDom) {
-              echarts.dispose(chartDom);
-            }
-          }
-        });
+        // 清理图表资源
+        this.cleanupChartByIndex(index);
+        return;
       }
       
-      // 为了完整性，也清理可能的数字索引图表
-      for (let i = 0; i <= 10; i++) {
-        const chartDom = document.getElementById(`simpleChart${i}`);
-        if (chartDom) {
-          echarts.dispose(chartDom);
+      // 保存之前面板的索引用于清理
+      const prevIndex = this.activePanelIndex;
+      this.activePanelIndex = index;
+      
+      // 清理之前的图表资源
+      if (prevIndex !== null && prevIndex !== index) {
+        this.cleanupChartByIndex(prevIndex);
+      }
+      
+      // 延迟渲染新面板的图表以确保DOM已更新
+      this.$nextTick(() => {
+        // 优化：不要自动渲染图表，等待用户点击按钮
+        // 这里只是准备容器
+      });
+    },
+    
+    // 添加按索引清理图表的方法
+    cleanupChartByIndex(index) {
+      if (index !== null && this.menuItems[index]) {
+        const typeId = this.menuItems[index].type;
+        if (typeId) {
+          const chartId = `simpleChart${typeId}`;
+          const chartDom = document.getElementById(chartId);
+          if (chartDom) {
+            const chart = echarts.getInstanceByDom(chartDom);
+            if (chart) {
+              chart.dispose();
+            }
+          }
         }
       }
     },
     
-    // 修改renderChart方法，基于服务类型而非索引渲染图表
+    cleanupCharts() {
+      // 使用更高效的方式清理图表实例
+      if (typeof echarts.getInstanceByDom === 'function') {
+        document.querySelectorAll('[id^="simpleChart"]').forEach(dom => {
+          const chart = echarts.getInstanceByDom(dom);
+          if (chart) {
+            chart.dispose();
+          }
+        });
+      }
+    },
+    
     renderChart(serviceType) {
       // 确保serviceType是字符串
       const typeId = String(serviceType);
@@ -1377,11 +1409,7 @@ export default {
       // 根据类型ID构建图表容器ID
       const chartId = `simpleChart${typeId}`;
       
-      // 显示加载提示
-      const chartTypes = [
-        '水源涵养', '水源供给', '土壤保持', '水质净化', 
-        '防风固沙', '洪水调蓄', '固碳服务', '粮食供给'
-      ];
+      // 类型名称映射
       const typeNameMap = {
         '0': '水源涵养',
         '1': '水源供给',
@@ -1404,6 +1432,7 @@ export default {
         chartName = typeNameMap[typeId] || '供需差额';
       }
       
+      // 显示加载提示
       const loadingMessage = this.$message({
         message: `正在绘制${chartName}图表...`,
         type: 'info',
@@ -1411,287 +1440,352 @@ export default {
         showClose: true
       });
       
-      try {
-        // 延迟执行图表初始化，等待DOM更新完成并显示容器
-        this.$nextTick(() => {
-          // 确保DOM已更新，容器已显示
-          setTimeout(() => {
-            const chartDom = document.getElementById(chartId);
-            if (!chartDom) {
-              loadingMessage.close();
-              this.$message.error(`找不到图表容器: ${chartId}`);
-              return;
-            }
-            
-            // 清除可能存在的旧图表实例
-            echarts.dispose(chartDom);
-            
-            // 创建新的图表实例
-            const chart = echarts.init(chartDom);
-            
-            // 获取供给和需求数据
-            const supplyData = this.getSupplyData(typeId);
-            const demandData = this.getDemandData(typeId);
-            
-            // 计算差额数据
-            const balanceData = supplyData.map((supply, index) => supply - demandData[index]);
-            
-            // 创建图表配置
-            const option = {
-              title: {
-                text: chartName + '供需关系',
-                left: 'center',
-                textStyle: {
-                  fontSize: 16,
-                  fontWeight: 'bold'
-                }
+      // 使用nextTick确保DOM已更新，并使用防抖处理避免频繁渲染
+      clearTimeout(this._chartRenderTimer);
+      this._chartRenderTimer = setTimeout(() => {
+        const chartDom = document.getElementById(chartId);
+        if (!chartDom) {
+          loadingMessage.close();
+          this.$message.error(`找不到图表容器: ${chartId}`);
+          return;
+        }
+        
+        try {
+          // 清除可能存在的旧图表实例
+          const existingChart = echarts.getInstanceByDom(chartDom);
+          if (existingChart) {
+            existingChart.dispose();
+          }
+          
+          // 创建新的图表实例 - 使用空白渲染器初始化以提高速度
+          const chart = echarts.init(chartDom, null, { renderer: 'canvas' });
+          
+          // 获取供给和需求数据 - 预计算以提高性能
+          const supplyData = this.getSupplyData(typeId);
+          const demandData = this.getDemandData(typeId);
+          
+          // 计算差额数据
+          const balanceData = supplyData.map((supply, index) => supply - demandData[index]);
+          
+          // 月份数据
+          const months = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
+          
+          // 优化图表配置以改善性能
+          const option = {
+            animation: false, // 禁用动画以提高性能
+            title: {
+              text: `${chartName}供需关系`,
+              left: 'center',
+              textStyle: { fontSize: 16, fontWeight: 'bold' }
+            },
+            tooltip: {
+              trigger: 'axis',
+              confine: true, // 限制tooltip在容器内，避免渲染问题
+              formatter: function(params) {
+                let result = params[0].name + '<br/>';
+                params.forEach(param => {
+                  const color = param.seriesName === '差额' ? 
+                    (param.value >= 0 ? '#67C23A' : '#F56C6C') : 
+                    param.color;
+                  result += `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background-color:${color};margin-right:5px;"></span>`;
+                  result += `${param.seriesName}: ${param.value}<br/>`;
+                });
+                return result;
+              }
+            },
+            legend: {
+              data: ['供给', '需求', '差额'],
+              top: 30,
+              textStyle: { fontSize: 12 },
+              selectedMode: false
+            },
+            grid: {
+              left: '3%',
+              right: '4%',
+              bottom: '10%',
+              top: '20%',
+              containLabel: true
+            },
+            xAxis: {
+              type: 'category',
+              boundaryGap: false,
+              data: months,
+              axisLine: { lineStyle: { color: '#999' } },
+              axisLabel: { color: '#666' }
+            },
+            yAxis: {
+              type: 'value',
+              splitLine: { lineStyle: { type: 'dashed', color: '#DDD' } },
+              axisLabel: { color: '#666' }
+            },
+            series: [
+              {
+                name: '供给',
+                type: 'line',
+                data: supplyData,
+                smooth: true,
+                symbol: 'circle',
+                symbolSize: 8,
+                itemStyle: { color: '#409EFF' },
+                lineStyle: { width: 3 },
+                z: 3
               },
-              tooltip: {
-                trigger: 'axis',
-                formatter: function(params) {
-                  let result = params[0].name + '<br/>';
-                  params.forEach(param => {
-                    const color = param.seriesName === '差额' ? 
-                      (param.value >= 0 ? '#67C23A' : '#F56C6C') : 
-                      param.color;
-                    result += `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background-color:${color};margin-right:5px;"></span>`;
-                    result += `${param.seriesName}: ${param.value}<br/>`;
-                  });
-                  return result;
-                }
+              {
+                name: '需求',
+                type: 'line',
+                data: demandData,
+                smooth: true,
+                symbol: 'triangle',
+                symbolSize: 8,
+                itemStyle: { color: '#F56C6C' },
+                lineStyle: { width: 3 },
+                z: 2
               },
-              legend: {
-                data: ['供给', '需求', '差额'],
-                top: 30,
-                textStyle: {
-                  fontSize: 12
-                },
-                selectedMode: false, // 禁止取消选中
-                itemWidth: 25,      // 图例标记的宽度
-                itemHeight: 14      // 图例标记的高度
-              },
-              grid: {
-                left: '3%',
-                right: '4%',
-                bottom: '10%',
-                top: '20%',
-                containLabel: true
-              },
-              xAxis: {
-                type: 'category',
-                boundaryGap: false,
-                data: ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'],
-                axisLine: {
-                  lineStyle: {
-                    color: '#999'
+              {
+                name: '差额',
+                type: 'line',
+                data: balanceData,
+                smooth: true,
+                symbol: 'diamond',
+                symbolSize: 8,
+                lineStyle: { type: 'dashed', width: 2 },
+                itemStyle: {
+                  color: function(params) {
+                    return params.value >= 0 ? '#67C23A' : '#F56C6C';
                   }
                 },
-                axisLabel: {
-                  color: '#666'
-                }
-              },
-              yAxis: {
-                type: 'value',
-                splitLine: {
-                  lineStyle: {
-                    type: 'dashed',
-                    color: '#DDD'
+                areaStyle: {
+                  opacity: 0.2,
+                  color: function(params) {
+                    return params.value >= 0 ? 'rgba(103,194,58,0.3)' : 'rgba(245,108,108,0.3)';
                   }
                 },
-                axisLabel: {
-                  color: '#666'
-                }
-              },
-              series: [
-                {
-                  name: '供给',
-                  type: 'line',
-                  data: supplyData,
-                  smooth: true,
-                  symbol: 'circle',
-                  symbolSize: 8,
-                  itemStyle: {
-                    color: '#409EFF'
-                  },
-                  lineStyle: {
-                    width: 4,
-                    shadowColor: 'rgba(0, 0, 0, 0.2)',
-                    shadowBlur: 10
-                  },
-                  emphasis: {
-                    itemStyle: {
-                      color: '#409EFF',
-                      borderWidth: 3,
-                      borderColor: '#fff',
-                      shadowColor: 'rgba(0, 0, 0, 0.5)',
-                      shadowBlur: 10
-                    }
-                  },
-                  z: 3
-                },
-                {
-                  name: '需求',
-                  type: 'line',
-                  data: demandData,
-                  smooth: true,
-                  symbol: 'triangle',
-                  symbolSize: 8,
-                  itemStyle: {
-                    color: '#F56C6C'
-                  },
-                  lineStyle: {
-                    width: 4,
-                    shadowColor: 'rgba(0, 0, 0, 0.2)',
-                    shadowBlur: 10
-                  },
-                  emphasis: {
-                    itemStyle: {
-                      color: '#F56C6C',
-                      borderWidth: 3,
-                      borderColor: '#fff',
-                      shadowColor: 'rgba(0, 0, 0, 0.5)',
-                      shadowBlur: 10
-                    }
-                  },
-                  z: 2
-                },
-                {
-                  name: '差额',
-                  type: 'line',
-                  data: balanceData,
-                  smooth: true,
-                  symbol: 'diamond',
-                  symbolSize: 8,
-                  lineStyle: {
-                    type: 'dashed',
-                    width: 2.5
-                  },
-                  itemStyle: {
-                    color: function(params) {
-                      return params.value >= 0 ? '#67C23A' : '#F56C6C';
-                    }
-                  },
-                  emphasis: {
-                    itemStyle: {
-                      borderWidth: 3,
-                      borderColor: '#fff'
-                    }
-                  },
-                  areaStyle: {
-                    opacity: 0.2,
-                    color: function(params) {
-                      return new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                        {
-                          offset: 0,
-                          color: params.value >= 0 ? 'rgba(103,194,58,0.5)' : 'rgba(245,108,108,0.5)'
-                        },
-                        {
-                          offset: 1,
-                          color: 'rgba(255,255,255,0.2)'
-                        }
-                      ]);
-                    }
-                  },
-                  z: 1
-                }
-              ]
-            };
+                z: 1
+              }
+            ]
+          };
+          
+          // 渲染成功标志
+          let renderSuccess = false;
+          
+          // 添加渲染完成事件，使用一次性事件监听
+          const handleRendered = () => {
+            if (renderSuccess) return; // 防止多次触发
+            renderSuccess = true;
             
-            // 设置图表选项
-            chart.setOption(option);
+            // 关闭加载中提示
+            loadingMessage.close();
             
-            // 确保只添加一个渲染完成事件监听器
-            let eventHandled = false;
+            // 显示成功提示
+            this.$message({
+              message: `${chartName}图表绘制完成`,
+              type: 'success',
+              duration: 2000
+            });
             
-            const handleRendered = () => {
-              if (eventHandled) return;
-              eventHandled = true;
-              
-              // 关闭加载中提示
-              loadingMessage.close();
-              
-              // 显示成功提示
-              this.$message({
-                message: `${chartName}图表绘制完成`,
-                type: 'success',
-                duration: 2000
-              });
-              
-              // 移除事件监听器
+            // 自行移除事件监听器（替代once功能）
+            if (typeof chart.off === 'function') {
               chart.off('rendered', handleRendered);
-            };
-            
-            // 使用标准的on方法
-            chart.on('rendered', handleRendered);
-            
-            // 强制调整图表大小以适应容器
-            chart.resize();
-            
-            // 设置超时保障，确保消息最终会被关闭
-            setTimeout(() => {
-              // 图表应该已经渲染完成，如果还没有处理，则手动处理
-              handleRendered();
-              // 再次调整大小，确保图表完全填充容器
-              chart.resize();
-            }, 500);
-            
-            // 添加全局resize事件处理
-            this.setupResizeHandler();
-          }, 50); // 短暂延迟以确保DOM已更新
+              chart.off('finished', handleRendered);
+            }
+          };
+          
+          // 设置图表选项
+          chart.setOption(option, true); // 使用notMerge=true提高性能
+          
+          // 尝试使用ECharts事件API
+          try {
+            if (typeof chart.on === 'function') {
+              // 尝试所有可能的事件
+              chart.on('rendered', handleRendered);
+              chart.on('finished', handleRendered);
+              
+              // 如果chart支持getZr方法，使用其on方法（兼容更多版本）
+              if (typeof chart.getZr === 'function') {
+                const zr = chart.getZr();
+                if (zr && typeof zr.on === 'function') {
+                  zr.on('rendered', handleRendered);
+                }
+              }
+            } else {
+              // 如果on方法不可用，直接调用回调函数
+              setTimeout(handleRendered, 100);
+            }
+          } catch (error) {
+            console.error('添加图表事件监听器失败:', error);
+            // 直接执行回调函数
+            setTimeout(handleRendered, 100);
+          }
+          
+          // 设置超时保障，确保最终会关闭loading
+          setTimeout(() => {
+            handleRendered();
+          }, 1000); // 减少超时时间，提高响应性
+          
+        } catch (error) {
+          // 处理错误
+          loadingMessage.close();
+          this.$message.error(`图表绘制失败: ${error.message}`);
+          console.error('图表绘制错误:', error);
+          
+          // 尝试备用的简单图表渲染
+          this.renderSimpleChartFallback(chartId, typeId, chartName);
+        }
+      }, 50); // 短时间防抖
+    },
+    
+    // 备用的简单图表渲染方法
+    renderSimpleChartFallback(chartId, typeId, chartName) {
+      try {
+        const chartDom = document.getElementById(chartId);
+        if (!chartDom) return;
+        
+        // 清除DOM中的所有内容
+        chartDom.innerHTML = '';
+        
+        // 获取数据
+        const supplyData = this.getSupplyData(typeId);
+        const demandData = this.getDemandData(typeId);
+        
+        // 计算差额数据
+        const balanceData = supplyData.map((supply, index) => supply - demandData[index]);
+        
+        // 创建表格展示数据
+        const table = document.createElement('table');
+        table.style.width = '100%';
+        table.style.borderCollapse = 'collapse';
+        table.style.textAlign = 'center';
+        table.style.marginTop = '20px';
+        
+        // 创建表头
+        const thead = document.createElement('thead');
+        const headerRow = document.createElement('tr');
+        headerRow.style.backgroundColor = '#f2f6fc';
+        
+        ['月份', '供给', '需求', '差额'].forEach(text => {
+          const th = document.createElement('th');
+          th.style.padding = '8px';
+          th.style.border = '1px solid #ddd';
+          th.textContent = text;
+          headerRow.appendChild(th);
         });
-      } catch (error) {
-        // 发生错误时关闭加载提示并显示错误消息
-        loadingMessage.close();
-        this.$message.error(`图表绘制失败: ${error.message}`);
-        console.error('图表绘制错误:', error);
+        
+        thead.appendChild(headerRow);
+        table.appendChild(thead);
+        
+        // 创建表体
+        const tbody = document.createElement('tbody');
+        const months = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
+        
+        months.forEach((month, index) => {
+          const row = document.createElement('tr');
+          
+          // 月份单元格
+          const monthCell = document.createElement('td');
+          monthCell.style.padding = '8px';
+          monthCell.style.border = '1px solid #ddd';
+          monthCell.textContent = month;
+          row.appendChild(monthCell);
+          
+          // 供给单元格
+          const supplyCell = document.createElement('td');
+          supplyCell.style.padding = '8px';
+          supplyCell.style.border = '1px solid #ddd';
+          supplyCell.textContent = supplyData[index];
+          supplyCell.style.color = '#409EFF';
+          row.appendChild(supplyCell);
+          
+          // 需求单元格
+          const demandCell = document.createElement('td');
+          demandCell.style.padding = '8px';
+          demandCell.style.border = '1px solid #ddd';
+          demandCell.textContent = demandData[index];
+          demandCell.style.color = '#F56C6C';
+          row.appendChild(demandCell);
+          
+          // 差额单元格
+          const balanceCell = document.createElement('td');
+          balanceCell.style.padding = '8px';
+          balanceCell.style.border = '1px solid #ddd';
+          balanceCell.textContent = balanceData[index];
+          balanceCell.style.color = balanceData[index] >= 0 ? '#67C23A' : '#F56C6C';
+          row.appendChild(balanceCell);
+          
+          tbody.appendChild(row);
+        });
+        
+        table.appendChild(tbody);
+        
+        // 添加标题
+        const title = document.createElement('div');
+        title.style.textAlign = 'center';
+        title.style.fontSize = '16px';
+        title.style.fontWeight = 'bold';
+        title.style.margin = '10px 0';
+        title.textContent = `${chartName}供需关系 (表格备用视图)`;
+        
+        // 清除图表容器并添加备用表格
+        chartDom.appendChild(title);
+        chartDom.appendChild(table);
+        
+        // 设置此图表为可见
+        this.$set(this.chartVisibility, typeId, true);
+        
+        console.log('已使用备用表格视图渲染图表数据');
+      } catch (fallbackError) {
+        console.error('备用图表渲染也失败了:', fallbackError);
       }
     },
     
-    // 全局resize事件处理，仅添加一次
     setupResizeHandler() {
-      // 先移除可能存在的旧事件
       window.removeEventListener('resize', this.handleResize);
-      // 添加新事件
       window.addEventListener('resize', this.handleResize);
     },
     
-    // resize事件处理函数
     handleResize() {
-      // 遍历所有可能的图表容器，找到有实例的进行resize
-      for (let i = 0; i <= 7; i++) {
-        const chartDom = document.getElementById(`simpleChart${i}`);
-        if (chartDom) {
-          const chartInstance = echarts.getInstanceByDom(chartDom);
-          if (chartInstance) {
-            chartInstance.resize();
+      if (this.resizeTimer) {
+        clearTimeout(this.resizeTimer);
+      }
+      
+      this.resizeTimer = setTimeout(() => {
+        // 调整地图大小
+        if (this.map) {
+          this.map.updateSize();
+        }
+        
+        // 只重新调整可见图表的大小
+        const activeType = this.activePanelIndex !== null ? 
+          (this.menuItems[this.activePanelIndex] && this.menuItems[this.activePanelIndex].type) : null;
+        
+        if (activeType) {
+          const chartId = `simpleChart${activeType}`;
+          const chartDom = document.getElementById(chartId);
+          if (chartDom) {
+            const chart = echarts.getInstanceByDom(chartDom);
+            if (chart) {
+              chart.resize();
+            }
           }
         }
-      }
+      }, 200);
     },
     
-    // 关闭控制面板
     closePanel() {
       this.activePanelIndex = null;
     },
     
-    // 添加一个方法用于判断图表是否应该显示
     isChartVisible(typeId) {
       return this.chartVisibility[typeId] === true;
     },
     
-    // 添加查看数据方法
     viewChartData(serviceType) {
-      // 确保serviceType是字符串
       const typeId = String(serviceType);
       
-      // 获取图表数据
       const supplyData = this.getSupplyData(typeId);
       const demandData = this.getDemandData(typeId);
       
-      // 获取月份
       const months = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
       
-      // 格式化数据为表格
       let tableData = [];
       for (let i = 0; i < 12; i++) {
         tableData.push({
@@ -1702,7 +1796,6 @@ export default {
         });
       }
       
-      // 构建HTML表格
       let tableHtml = '<table style="width:100%; border-collapse:collapse;">';
       tableHtml += '<tr style="background-color:#f2f6fc;"><th style="padding:10px;border:1px solid #ddd;">月份</th><th style="padding:10px;border:1px solid #ddd;">供给</th><th style="padding:10px;border:1px solid #ddd;">需求</th><th style="padding:10px;border:1px solid #ddd;">差额</th></tr>';
       
@@ -1718,7 +1811,6 @@ export default {
       
       tableHtml += '</table>';
       
-      // 显示数据对话框
       this.$msgbox({
         title: this.getChartTitle(typeId) + '数据',
         message: tableHtml,
@@ -1729,7 +1821,6 @@ export default {
       });
     },
     
-    // 获取图表标题
     getChartTitle(typeId) {
       const typeNameMap = {
         '0': '水源涵养',
@@ -1753,50 +1844,86 @@ export default {
     
     // 获取供给数据
     getSupplyData(typeId) {
+      // 首先检查缓存
+      if (this.dataCache.supplyData[typeId]) {
+        return this.dataCache.supplyData[typeId];
+      }
+      
+      let data;
       switch(typeId) {
         case '0': // 水源涵养
-          return [150, 220, 180, 250, 190, 270, 250, 230, 260, 280, 210, 190];
+          data = [150, 220, 180, 250, 190, 270, 250, 230, 260, 280, 210, 190];
+          break;
         case '1': // 水源供给
-          return [150, 180, 200, 230, 250, 270, 260, 240, 220, 200, 180, 160];
+          data = [150, 180, 200, 230, 250, 270, 260, 240, 220, 200, 180, 160];
+          break;
         case '2': // 土壤保持
-          return [130, 150, 170, 190, 170, 150, 130, 120, 140, 160, 180, 160];
+          data = [130, 150, 170, 190, 170, 150, 130, 120, 140, 160, 180, 160];
+          break;
         case '3': // 水质净化
-          return [220, 210, 200, 190, 180, 170, 180, 190, 200, 210, 220, 230];
+          data = [220, 210, 200, 190, 180, 170, 180, 190, 200, 210, 220, 230];
+          break;
         case '4': // 防风固沙
-          return [70, 100, 130, 160, 190, 220, 200, 180, 150, 120, 90, 60];
+          data = [70, 100, 130, 160, 190, 220, 200, 180, 150, 120, 90, 60];
+          break;
         case '5': // 洪水调蓄
-          return [260, 240, 220, 200, 180, 160, 140, 160, 180, 200, 220, 240];
+          data = [260, 240, 220, 200, 180, 160, 140, 160, 180, 200, 220, 240];
+          break;
         case '6': // 固碳服务
-          return [90, 110, 130, 150, 170, 190, 210, 190, 170, 150, 130, 110];
+          data = [90, 110, 130, 150, 170, 190, 210, 190, 170, 150, 130, 110];
+          break;
         case '7': // 粮食供给
-          return [150, 180, 210, 240, 270, 300, 270, 240, 210, 180, 150, 120];
+          data = [150, 180, 210, 240, 270, 300, 270, 240, 210, 180, 150, 120];
+          break;
         default:
-          return Array(12).fill(0).map(() => Math.floor(Math.random() * 200) + 100);
+          data = Array(12).fill(0).map(() => Math.floor(Math.random() * 200) + 100);
       }
+      
+      // 保存到缓存
+      this.dataCache.supplyData[typeId] = data;
+      return data;
     },
     
     // 获取需求数据
     getDemandData(typeId) {
+      // 首先检查缓存
+      if (this.dataCache.demandData[typeId]) {
+        return this.dataCache.demandData[typeId];
+      }
+      
+      let data;
       switch(typeId) {
         case '0': // 水源涵养
-          return [120, 132, 101, 134, 90, 230, 210, 180, 190, 210, 150, 130];
+          data = [120, 132, 101, 134, 90, 230, 210, 180, 190, 210, 150, 130];
+          break;
         case '1': // 水源供给
-          return [100, 120, 140, 160, 180, 200, 190, 170, 150, 130, 110, 100];
+          data = [100, 120, 140, 160, 180, 200, 190, 170, 150, 130, 110, 100];
+          break;
         case '2': // 土壤保持
-          return [80, 90, 100, 110, 100, 90, 80, 70, 80, 90, 100, 90];
+          data = [80, 90, 100, 110, 100, 90, 80, 70, 80, 90, 100, 90];
+          break;
         case '3': // 水质净化
-          return [150, 140, 130, 120, 110, 100, 110, 120, 130, 140, 150, 160];
+          data = [150, 140, 130, 120, 110, 100, 110, 120, 130, 140, 150, 160];
+          break;
         case '4': // 防风固沙
-          return [30, 50, 70, 90, 110, 130, 120, 100, 80, 60, 40, 20];
+          data = [30, 50, 70, 90, 110, 130, 120, 100, 80, 60, 40, 20];
+          break;
         case '5': // 洪水调蓄
-          return [200, 180, 160, 140, 120, 100, 80, 100, 120, 140, 160, 180];
+          data = [200, 180, 160, 140, 120, 100, 80, 100, 120, 140, 160, 180];
+          break;
         case '6': // 固碳服务
-          return [50, 60, 70, 80, 90, 100, 110, 100, 90, 80, 70, 60];
+          data = [50, 60, 70, 80, 90, 100, 110, 100, 90, 80, 70, 60];
+          break;
         case '7': // 粮食供给
-          return [110, 130, 150, 170, 190, 210, 190, 170, 150, 130, 110, 90];
+          data = [110, 130, 150, 170, 190, 210, 190, 170, 150, 130, 110, 90];
+          break;
         default:
-          return Array(12).fill(0).map(() => Math.floor(Math.random() * 150) + 50);
+          data = Array(12).fill(0).map(() => Math.floor(Math.random() * 150) + 50);
       }
+      
+      // 保存到缓存
+      this.dataCache.demandData[typeId] = data;
+      return data;
     },
     
     // 地图控制相关方法
@@ -1806,7 +1933,11 @@ export default {
       view.animate({
         center: fromLonLat(this.initialMapCenter),
         zoom: this.initialMapZoom,
-        duration: 1000
+        duration: 1000, // 平滑动画持续1秒
+        easing: function(t) {
+          // 使用ease-out动画效果
+          return 1 - Math.pow(1 - t, 3);
+        }
       });
     },
     
@@ -1841,7 +1972,10 @@ export default {
       const currentZoom = view.getZoom();
       view.animate({
         zoom: currentZoom + 1,
-        duration: 250
+        duration: 250,
+        easing: function(t) {
+          return t * (2 - t); // 平滑的加速度曲线
+        }
       });
     },
     
@@ -1851,7 +1985,10 @@ export default {
       const currentZoom = view.getZoom();
       view.animate({
         zoom: currentZoom - 1,
-        duration: 250
+        duration: 250,
+        easing: function(t) {
+          return t * (2 - t); // 平滑的加速度曲线
+        }
       });
     },
     
@@ -1861,34 +1998,63 @@ export default {
       this.currentBaseLayerIndex = (this.currentBaseLayerIndex + 1) % this.baseLayerOptions.length;
       const newBaseLayer = this.baseLayerOptions[this.currentBaseLayerIndex];
       
-      // 移除当前的底图图层
-      const layers = this.map.getLayers();
-      if (layers.getLength() > 0) {
-        layers.removeAt(0);  // 移除底图
-        if (newBaseLayer.type === 'satellite') {
-          // 添加卫星影像底图
-          layers.insertAt(0, new TileLayer({
-            source: new XYZ({
-              url: 'https://t{0-7}.tianditu.gov.cn/DataServer?T=img_w&x={x}&y={y}&l={z}&tk=b079cd52cb89ffdc40073702b8cce199',
-              maxZoom: 18
-            })
-          }));
-        } else {
-          // 添加街道底图
-          layers.insertAt(0, new TileLayer({
-            source: new XYZ({
-              url: 'https://t{0-7}.tianditu.gov.cn/DataServer?T=vec_w&x={x}&y={y}&l={z}&tk=b079cd52cb89ffdc40073702b8cce199',
-              maxZoom: 18
-            })
-          }));
-        }
+      // 创建新图层，但不立即添加
+      let newLayer;
+      if (newBaseLayer.type === 'satellite') {
+        // 添加卫星影像底图
+        newLayer = new TileLayer({
+          source: new XYZ({
+            url: 'https://t{0-7}.tianditu.gov.cn/DataServer?T=img_w&x={x}&y={y}&l={z}&tk=b079cd52cb89ffdc40073702b8cce199',
+            maxZoom: 18
+          }),
+          opacity: 0 // 开始时完全透明
+        });
+      } else {
+        // 添加街道底图
+        newLayer = new TileLayer({
+          source: new XYZ({
+            url: 'https://t{0-7}.tianditu.gov.cn/DataServer?T=vec_w&x={x}&y={y}&l={z}&tk=b079cd52cb89ffdc40073702b8cce199',
+            maxZoom: 18
+          }),
+          opacity: 0
+        });
       }
       
-      this.$message({
-        message: `已切换至${newBaseLayer.name}`,
-        type: 'success',
-        duration: 2000
-      });
+      // 获取现有底图
+      const layers = this.map.getLayers();
+      const oldLayer = layers.getArray()[0];
+      
+      // 添加新图层到底部
+      this.map.getLayers().insertAt(0, newLayer);
+      
+      // 设置渐变动画
+      let start = null;
+      const duration = 500; // 500ms的渐变
+      
+      const animate = (timestamp) => {
+        if (!start) start = timestamp;
+        const progress = (timestamp - start) / duration;
+        
+        if (progress < 1) {
+          // 新层逐渐显示，旧层逐渐隐藏
+          newLayer.setOpacity(Math.min(progress, 1));
+          oldLayer.setOpacity(Math.max(1 - progress, 0));
+          
+          requestAnimationFrame(animate);
+        } else {
+          // 动画结束，完全显示新层并移除旧层
+          newLayer.setOpacity(1);
+          layers.remove(oldLayer);
+          
+          this.$message({
+            message: `已切换至${newBaseLayer.name}`,
+            type: 'success',
+            duration: 2000
+          });
+        }
+      };
+      
+      requestAnimationFrame(animate);
     },
     
     // 切换测量工具
@@ -1979,66 +2145,139 @@ export default {
       };
     },
     
-    // 切换时间播放状态
+    // 切换时间播放状态 - 使用requestAnimationFrame提高性能
     toggleTimePlay() {
       this.isTimePlayActive = !this.isTimePlayActive;
       
       if (this.isTimePlayActive) {
-        // 开始播放时间动画
         this.startTimeAnimation();
       } else {
-        // 暂停时间动画
         this.stopTimeAnimation();
       }
     },
     
-    // 开始时间动画
+    // 完全重写动画实现，使用requestAnimationFrame代替setInterval
     startTimeAnimation() {
       // 如果已经是最大年份，则重置为最小年份
       if (this.currentYear >= this.maxYear) {
         this.currentYear = this.minYear;
       }
       
-      // 清除可能存在的定时器
-      if (this.timePlayInterval) {
-        clearInterval(this.timePlayInterval);
-      }
+      // 清除可能存在的动画帧
+      this.stopTimeAnimation();
       
-      // 设置定时器，按指定速度递增年份
-      this.timePlayInterval = setInterval(() => {
-        // 递增年份
-        this.currentYear += this.yearStep;
+      // 优化变量用于动画
+      const animationState = {
+        startTimestamp: null,
+        lastStepTime: 0
+      };
+      
+      // 使用requestAnimationFrame实现更平滑的动画
+      const animate = (timestamp) => {
+        if (!this.isTimePlayActive) return;
         
-        // 如果达到最大年份，则停止动画并重置播放状态
-        if (this.currentYear > this.maxYear) {
-          this.currentYear = this.maxYear;
-          this.stopTimeAnimation();
-          this.isTimePlayActive = false;
+        // 初始化开始时间
+        if (!animationState.startTimestamp) {
+          animationState.startTimestamp = timestamp;
+          animationState.lastStepTime = timestamp;
         }
         
-        // 触发年份变化事件
-        this.handleYearChange(this.currentYear);
-      }, this.animationSpeed);
+        // 计算经过的时间
+        const elapsed = timestamp - animationState.lastStepTime;
+        
+        // 按指定间隔更新年份
+        if (elapsed >= this.animationSpeed) {
+          // 更新上次步进时间
+          animationState.lastStepTime = timestamp;
+          
+          // 递增年份
+          this.currentYear += this.yearStep;
+          
+          // 触发年份变化事件 - 只在关键帧更新地图
+          this.handleYearChange(this.currentYear);
+          
+          // 如果达到最大年份，则停止动画
+          if (this.currentYear > this.maxYear) {
+            this.currentYear = this.maxYear;
+            this.stopTimeAnimation();
+            this.isTimePlayActive = false;
+            return;
+          }
+        }
+        
+        // 继续下一帧动画
+        this.timePlayInterval = requestAnimationFrame(animate);
+      };
+      
+      // 启动动画循环
+      this.timePlayInterval = requestAnimationFrame(animate);
     },
     
-    // 停止时间动画
+    // 停止时间动画 - 使用cancelAnimationFrame
     stopTimeAnimation() {
       if (this.timePlayInterval) {
-        clearInterval(this.timePlayInterval);
+        cancelAnimationFrame(this.timePlayInterval);
         this.timePlayInterval = null;
       }
     },
     
-    // 处理年份变化
+    // 处理年份变化 - 使用节流避免频繁更新
     handleYearChange(value) {
       // 更新当前年份
       this.currentYear = value;
       
-      // 这里添加年份变化时的业务逻辑
-      console.log('年份变更为:', this.currentYear);
+      // 使用节流减少对地图的更新频率
+      clearTimeout(this._yearChangeTimer);
+      this._yearChangeTimer = setTimeout(() => {
+        this.updateMapLayersByYear(value);
+      }, 100); // 100ms节流
+    },
+    
+    // 根据年份更新地图图层 - 添加性能优化
+    updateMapLayersByYear(year) {
+      // 避免不必要的图层更新
+      if (this._lastYearUpdate === year) return;
+      this._lastYearUpdate = year;
       
-      // 在这里可以根据年份更新地图数据、图层等
-      // 例如: this.updateMapLayersByYear(this.currentYear);
+      // 如果没有活动面板或未初始化则跳过
+      if (this.activePanelIndex === null || !this.menuItems[this.activePanelIndex]) {
+        return;
+      }
+      
+      const serviceType = this.menuItems[this.activePanelIndex].type;
+      if (!serviceType) return;
+      
+      console.log(`更新地图数据: 服务类型=${serviceType}, 年份=${year}`);
+      
+      // 此处应添加实际的地图图层更新逻辑
+      // 为避免性能问题，可以考虑使用Web Worker异步处理数据
+    },
+    
+    // 添加新方法：使用IntersectionObserver实现懒加载
+    setupLazyInitialization() {
+      // 创建一个观察器来监视地图容器是否在视口中
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            // 地图容器可见，可以加载第一个面板
+            if (this.menuItems.length > 0 && !this.stateFlags.panelsInitialized) {
+              this.togglePanel(0);
+              this.stateFlags.panelsInitialized = true;
+            }
+            
+            // 一旦初始化完成，取消观察
+            observer.disconnect();
+          }
+        });
+      }, {
+        threshold: 0.1 // 当10%的地图容器可见时触发
+      });
+      
+      // 开始观察地图容器
+      const mapContainer = document.querySelector('.map-container');
+      if (mapContainer) {
+        observer.observe(mapContainer);
+      }
     },
   },
   watch: {
@@ -2060,6 +2299,50 @@ export default {
         // 删除这里的所有chart渲染逻辑，不再自动渲染
       }
     },
+  },
+  computed: {
+    // 添加计算属性以减少模板中的重复计算
+    
+    // 当前活动服务类型
+    activeServiceType() {
+      if (this.activePanelIndex !== null && this.menuItems[this.activePanelIndex]) {
+        return this.menuItems[this.activePanelIndex].type;
+      }
+      return null;
+    },
+    
+    // 图例样式计算
+    legendStyle() {
+      if (this.activePanelIndex === null || !this.menuItems[this.activePanelIndex]) {
+        return {
+          background: 'linear-gradient(to bottom, #3498db, #ffffff)',
+          height: '50px'
+        };
+      }
+      
+      const typeId = this.menuItems[this.activePanelIndex].type || '0';
+      
+      // 服务类型到颜色的映射
+      const colorMap = {
+        '0': '#3498db', // 水源涵养 - 蓝色
+        '1': '#1abc9c', // 水源供给 - 青色
+        '2': '#2ecc71', // 土壤保持 - 绿色
+        '3': '#9b59b6', // 水质净化 - 紫色
+        '4': '#f1c40f', // 防风固沙 - 黄色
+        '5': '#e74c3c', // 洪水调蓄 - 红色
+        '6': '#27ae60', // 固碳服务 - 暗绿色
+        '7': '#f39c12'  // 粮食供给 - 橙色
+      };
+      
+      const color = colorMap[typeId] || '#3498db';
+      
+      return {
+        background: `linear-gradient(to bottom, ${color}, #ffffff)`,
+        height: '50px',
+        width: '20px',
+        borderRadius: '2px'
+      };
+    }
   }
 };
 </script>
@@ -2259,7 +2542,7 @@ export default {
         span {
           display: block;
           margin-bottom: 6px;
-          color: #336699;
+          color: #34495e;
           font-weight: bold;
         }
       }
@@ -2317,9 +2600,9 @@ export default {
   left: 57px;
   top: 5px;
   width: 300px;
-  background: white;
+  background: #34495e;
   border-radius: 4px;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.3);
   z-index: 1000;
   transition: all 0.3s;
   
@@ -2333,18 +2616,18 @@ export default {
     justify-content: space-between;
     align-items: center;
     padding: 8px 15px;
-    background: #f5f7fa;
-    border-bottom: 1px solid #e6ebf5;
+    background: #34495e;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     
     span {
       font-weight: bold;
-      color: #606266;
+      color: white;
     }
     
     .panel-controls {
       i {
         cursor: pointer;
-        color: #909399;
+        color: white;
         
         &:hover {
           color: #409EFF;
@@ -2357,6 +2640,7 @@ export default {
     padding: 10px;
     max-height: 300px;
     overflow-y: auto;
+    background-color: #f8f9fc;
     
     &::-webkit-scrollbar {
       width: 6px;
