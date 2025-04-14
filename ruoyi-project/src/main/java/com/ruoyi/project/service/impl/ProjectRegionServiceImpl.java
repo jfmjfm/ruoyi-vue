@@ -4,6 +4,10 @@ import java.util.List;
 import com.ruoyi.common.utils.DateUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import java.util.ArrayList;
+import com.ruoyi.common.utils.StringUtils;
+import org.springframework.transaction.annotation.Transactional;
+import com.ruoyi.project.domain.ProjectRegionService;
 import com.ruoyi.project.mapper.ProjectRegionMapper;
 import com.ruoyi.project.domain.ProjectRegion;
 import com.ruoyi.project.service.IProjectRegionService;
@@ -12,7 +16,7 @@ import com.ruoyi.project.service.IProjectRegionService;
  * 项目区域Service业务层处理
  * 
  * @author ruoyi
- * @date 2025-03-20
+ * @date 2025-04-13
  */
 @Service
 public class ProjectRegionServiceImpl implements IProjectRegionService 
@@ -50,11 +54,14 @@ public class ProjectRegionServiceImpl implements IProjectRegionService
      * @param projectRegion 项目区域
      * @return 结果
      */
+    @Transactional
     @Override
     public int insertProjectRegion(ProjectRegion projectRegion)
     {
         projectRegion.setCreateTime(DateUtils.getNowDate());
-        return projectRegionMapper.insertProjectRegion(projectRegion);
+        int rows = projectRegionMapper.insertProjectRegion(projectRegion);
+        insertProjectRegionService(projectRegion);
+        return rows;
     }
 
     /**
@@ -63,10 +70,13 @@ public class ProjectRegionServiceImpl implements IProjectRegionService
      * @param projectRegion 项目区域
      * @return 结果
      */
+    @Transactional
     @Override
     public int updateProjectRegion(ProjectRegion projectRegion)
     {
         projectRegion.setUpdateTime(DateUtils.getNowDate());
+        projectRegionMapper.deleteProjectRegionServiceByRegionId(projectRegion.getId());
+        insertProjectRegionService(projectRegion);
         return projectRegionMapper.updateProjectRegion(projectRegion);
     }
 
@@ -76,9 +86,11 @@ public class ProjectRegionServiceImpl implements IProjectRegionService
      * @param ids 需要删除的项目区域主键
      * @return 结果
      */
+    @Transactional
     @Override
     public int deleteProjectRegionByIds(Long[] ids)
     {
+        projectRegionMapper.deleteProjectRegionServiceByRegionIds(ids);
         return projectRegionMapper.deleteProjectRegionByIds(ids);
     }
 
@@ -88,9 +100,35 @@ public class ProjectRegionServiceImpl implements IProjectRegionService
      * @param id 项目区域主键
      * @return 结果
      */
+    @Transactional
     @Override
     public int deleteProjectRegionById(Long id)
     {
+        projectRegionMapper.deleteProjectRegionServiceByRegionId(id);
         return projectRegionMapper.deleteProjectRegionById(id);
+    }
+
+    /**
+     * 新增项目区域-服务类型关联信息
+     * 
+     * @param projectRegion 项目区域对象
+     */
+    public void insertProjectRegionService(ProjectRegion projectRegion)
+    {
+        List<ProjectRegionService> projectRegionServiceList = projectRegion.getProjectRegionServiceList();
+        Long id = projectRegion.getId();
+        if (StringUtils.isNotNull(projectRegionServiceList))
+        {
+            List<ProjectRegionService> list = new ArrayList<ProjectRegionService>();
+            for (ProjectRegionService projectRegionService : projectRegionServiceList)
+            {
+                projectRegionService.setRegionId(id);
+                list.add(projectRegionService);
+            }
+            if (list.size() > 0)
+            {
+                projectRegionMapper.batchProjectRegionService(list);
+            }
+        }
     }
 }

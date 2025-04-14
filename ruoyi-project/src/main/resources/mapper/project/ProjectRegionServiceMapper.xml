@@ -10,6 +10,24 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <result property="serviceType"    column="service_type"    />
     </resultMap>
 
+    <resultMap id="ProjectRegionServiceProjectServiceCaseResult" type="ProjectRegionService" extends="ProjectRegionServiceResult">
+        <collection property="projectServiceCaseList" ofType="ProjectServiceCase" column="id" select="selectProjectServiceCaseList" />
+    </resultMap>
+
+    <resultMap type="ProjectServiceCase" id="ProjectServiceCaseResult">
+        <result property="id"    column="id"    />
+        <result property="regionServiceId"    column="region_service_id"    />
+        <result property="caseName"    column="case_name"    />
+        <result property="caseDir"    column="case_dir"    />
+        <result property="isDefault"    column="is_default"    />
+        <result property="validparam"    column="validparam"    />
+        <result property="description"    column="description"    />
+        <result property="createTime"    column="create_time"    />
+        <result property="updateTime"    column="update_time"    />
+        <result property="createBy"    column="create_by"    />
+        <result property="updateBy"    column="update_by"    />
+    </resultMap>
+
     <sql id="selectProjectRegionServiceVo">
         select id, region_id, service_type from project_region_service
     </sql>
@@ -22,9 +40,16 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         </where>
     </select>
     
-    <select id="selectProjectRegionServiceById" parameterType="Long" resultMap="ProjectRegionServiceResult">
-        <include refid="selectProjectRegionServiceVo"/>
+    <select id="selectProjectRegionServiceById" parameterType="Long" resultMap="ProjectRegionServiceProjectServiceCaseResult">
+        select id, region_id, service_type
+        from project_region_service
         where id = #{id}
+    </select>
+
+    <select id="selectProjectServiceCaseList" resultMap="ProjectServiceCaseResult">
+        select id, region_service_id, case_name, case_dir, is_default, validparam, description, create_time, update_time, create_by, update_by
+        from project_service_case
+        where region_service_id = #{region_service_id}
     </select>
 
     <insert id="insertProjectRegionService" parameterType="ProjectRegionService" useGeneratedKeys="true" keyProperty="id">
@@ -58,4 +83,22 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             #{id}
         </foreach>
     </delete>
+    
+    <delete id="deleteProjectServiceCaseByRegionServiceIds" parameterType="String">
+        delete from project_service_case where region_service_id in 
+        <foreach item="regionServiceId" collection="array" open="(" separator="," close=")">
+            #{regionServiceId}
+        </foreach>
+    </delete>
+
+    <delete id="deleteProjectServiceCaseByRegionServiceId" parameterType="Long">
+        delete from project_service_case where region_service_id = #{regionServiceId}
+    </delete>
+
+    <insert id="batchProjectServiceCase">
+        insert into project_service_case( id, region_service_id, case_name, case_dir, is_default, validparam, description, create_time, update_time, create_by, update_by) values
+        <foreach item="item" index="index" collection="list" separator=",">
+            ( #{item.id}, #{item.regionServiceId}, #{item.caseName}, #{item.caseDir}, #{item.isDefault}, #{item.validparam}, #{item.description}, #{item.createTime}, #{item.updateTime}, #{item.createBy}, #{item.updateBy})
+        </foreach>
+    </insert>
 </mapper>

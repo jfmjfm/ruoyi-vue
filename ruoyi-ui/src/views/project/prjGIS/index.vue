@@ -131,6 +131,14 @@
               <el-collapse v-model="activeEcoService">
                 <el-collapse-item title="潜在供给" name="potentialSupply0">
                   <div class="parameter-control">
+                    <span>选择情景</span>
+                    <el-select v-model="scenario0" placeholder="请选择情景">
+                      <el-option label="基准情景" value="baseline"></el-option>
+                      <el-option label="优化情景" value="optimized"></el-option>
+                      <el-option label="发展情景" value="development"></el-option>
+                    </el-select>
+                  </div>
+                  <div class="parameter-control">
                     <span>服务指标</span>
                     <el-select v-model="indicators0" placeholder="请选择指标">
                       <el-option label="枯水期基流" value="baseflow"></el-option>
@@ -167,8 +175,9 @@
                 <el-collapse-item title="供给赤字" name="deficit0">
                   <!-- 按钮组 - 添加查看数据按钮 -->
                   <div class="chart-controls">
-                    <el-button type="primary" size="small" @click="renderChart(item.type || 0)">重绘图表</el-button>
-                    <el-button type="primary" size="small" @click="viewChartData(item.type || 0)">查看数据</el-button>
+                    <el-button type="primary" size="small" round @click="renderChart(item.type || 0)">重绘图表</el-button>
+                    <el-button type="primary" size="small" round @click="viewChartData(item.type || 0)">查看数据</el-button>
+                    <el-button type="primary" size="small" round @click="downloadChartData(item.type || 0)">下载数据</el-button>
                   </div>
                   
                   <!-- 图表容器 -->
@@ -217,14 +226,22 @@
             <template v-else-if="item.type === '1'">
               <el-collapse v-model="activeEcoService">
                 <el-collapse-item title="潜在供给" name="potentialSupply1">
-              <div class="parameter-control">
+                  <div class="parameter-control">
+                    <span>选择情景</span>
+                    <el-select v-model="scenario1" placeholder="请选择情景">
+                      <el-option label="基准情景" value="baseline"></el-option>
+                      <el-option label="优化情景" value="optimized"></el-option>
+                      <el-option label="发展情景" value="development"></el-option>
+                    </el-select>
+                  </div>
+                  <div class="parameter-control">
                     <span>服务指标</span>
                     <el-select v-model="indicators1" placeholder="请选择指标">
                       <el-option label="年均径流量" value="runoff"></el-option>
                       <el-option label="降水量" value="precipitation"></el-option>
                       <el-option label="蒸发量" value="evaporation"></el-option>
                     </el-select>
-              </div>
+                  </div>
                   <div class="parameter-control">
                     <span>时间尺度</span>
                     <el-radio-group v-model="timeScale1">
@@ -254,8 +271,9 @@
                 <el-collapse-item title="供给赤字" name="deficit1">
                   <!-- 按钮组 - 添加查看数据按钮 -->
                   <div class="chart-controls">
-                    <el-button type="primary" size="small" @click="renderChart(item.type || 0)">重绘图表</el-button>
-                    <el-button type="primary" size="small" @click="viewChartData(item.type || 0)">查看数据</el-button>
+                    <el-button type="primary" size="small" round @click="renderChart(item.type || 0)">重绘图表</el-button>
+                    <el-button type="primary" size="small" round @click="viewChartData(item.type || 0)">查看数据</el-button>
+                    <el-button type="primary" size="small" round @click="downloadChartData(item.type || 0)">下载数据</el-button>
                   </div>
                   
                   <!-- 图表容器 -->
@@ -296,7 +314,15 @@
             <template v-else-if="item.type === '2'">
               <el-collapse v-model="activeEcoService">
                 <el-collapse-item title="潜在供给" name="potentialSupply2">
-              <div class="parameter-control">
+                  <div class="parameter-control">
+                    <span>选择情景</span>
+                    <el-select v-model="scenario2" placeholder="请选择情景">
+                      <el-option label="基准情景" value="baseline"></el-option>
+                      <el-option label="优化情景" value="optimized"></el-option>
+                      <el-option label="发展情景" value="development"></el-option>
+                    </el-select>
+                  </div>
+                  <div class="parameter-control">
                     <span>服务指标</span>
                     <el-select v-model="indicators2" placeholder="请选择指标">
                       <el-option label="土壤侵蚀量" value="erosion"></el-option>
@@ -333,8 +359,9 @@
                 <el-collapse-item title="供给赤字" name="deficit2">
                   <!-- 按钮组 - 添加查看数据按钮 -->
                   <div class="chart-controls">
-                    <el-button type="primary" size="small" @click="renderChart(item.type || 0)">重绘图表</el-button>
-                    <el-button type="primary" size="small" @click="viewChartData(item.type || 0)">查看数据</el-button>
+                    <el-button type="primary" size="small" round @click="renderChart(item.type || 0)">重绘图表</el-button>
+                    <el-button type="primary" size="small" round @click="viewChartData(item.type || 0)">查看数据</el-button>
+                    <el-button type="primary" size="small" round @click="downloadChartData(item.type || 0)">下载数据</el-button>
                   </div>
                   
                   <!-- 图表容器 -->
@@ -375,7 +402,15 @@
             <template v-else-if="item.type === '3'">
               <el-collapse v-model="activeEcoService">
                 <el-collapse-item title="潜在供给" name="potentialSupply3">
-              <div class="parameter-control">
+                  <div class="parameter-control">
+                    <span>选择情景</span>
+                    <el-select v-model="scenario3" placeholder="请选择情景">
+                      <el-option label="基准情景" value="baseline"></el-option>
+                      <el-option label="优化情景" value="optimized"></el-option>
+                      <el-option label="发展情景" value="development"></el-option>
+                    </el-select>
+                  </div>
+                  <div class="parameter-control">
                     <span>服务指标</span>
                     <el-select v-model="indicators3" placeholder="请选择指标">
                       <el-option label="氮净化能力" value="nitrogenPurification"></el-option>
@@ -412,8 +447,9 @@
                 <el-collapse-item title="供给赤字" name="deficit3">
                   <!-- 按钮组 - 添加查看数据按钮 -->
                   <div class="chart-controls">
-                    <el-button type="primary" size="small" @click="renderChart(item.type || 0)">重绘图表</el-button>
-                    <el-button type="primary" size="small" @click="viewChartData(item.type || 0)">查看数据</el-button>
+                    <el-button type="primary" size="small" round @click="renderChart(item.type || 0)">重绘图表</el-button>
+                    <el-button type="primary" size="small" round @click="viewChartData(item.type || 0)">查看数据</el-button>
+                    <el-button type="primary" size="small" round @click="downloadChartData(item.type || 0)">下载数据</el-button>
                   </div>
                   
                   <!-- 图表容器 -->
@@ -454,7 +490,15 @@
             <template v-else-if="item.type === '4'">
               <el-collapse v-model="activeEcoService">
                 <el-collapse-item title="潜在供给" name="potentialSupply4">
-              <div class="parameter-control">
+                  <div class="parameter-control">
+                    <span>选择情景</span>
+                    <el-select v-model="scenario4" placeholder="请选择情景">
+                      <el-option label="基准情景" value="baseline"></el-option>
+                      <el-option label="优化情景" value="optimized"></el-option>
+                      <el-option label="发展情景" value="development"></el-option>
+                    </el-select>
+                  </div>
+                  <div class="parameter-control">
                     <span>服务指标</span>
                     <el-select v-model="indicators4" placeholder="请选择指标">
                       <el-option label="沙尘通量" value="sandFlux"></el-option>
@@ -491,8 +535,9 @@
                 <el-collapse-item title="供给赤字" name="deficit4">
                   <!-- 按钮组 - 添加查看数据按钮 -->
                   <div class="chart-controls">
-                    <el-button type="primary" size="small" @click="renderChart(item.type || 0)">重绘图表</el-button>
-                    <el-button type="primary" size="small" @click="viewChartData(item.type || 0)">查看数据</el-button>
+                    <el-button type="primary" size="small" round @click="renderChart(item.type || 0)">重绘图表</el-button>
+                    <el-button type="primary" size="small" round @click="viewChartData(item.type || 0)">查看数据</el-button>
+                    <el-button type="primary" size="small" round @click="downloadChartData(item.type || 0)">下载数据</el-button>
                   </div>
                   
                   <!-- 图表容器 -->
@@ -533,7 +578,15 @@
             <template v-else-if="item.type === '5'">
               <el-collapse v-model="activeEcoService">
                 <el-collapse-item title="潜在供给" name="potentialSupply5">
-              <div class="parameter-control">
+                  <div class="parameter-control">
+                    <span>选择情景</span>
+                    <el-select v-model="scenario5" placeholder="请选择情景">
+                      <el-option label="基准情景" value="baseline"></el-option>
+                      <el-option label="优化情景" value="optimized"></el-option>
+                      <el-option label="发展情景" value="development"></el-option>
+                    </el-select>
+                  </div>
+                  <div class="parameter-control">
                     <span>服务指标</span>
                     <el-select v-model="indicators5" placeholder="请选择指标">
                       <el-option label="洪峰削减" value="peakReduction"></el-option>
@@ -570,8 +623,9 @@
                 <el-collapse-item title="供给赤字" name="deficit5">
                   <!-- 按钮组 - 添加查看数据按钮 -->
                   <div class="chart-controls">
-                    <el-button type="primary" size="small" @click="renderChart(item.type || 0)">重绘图表</el-button>
-                    <el-button type="primary" size="small" @click="viewChartData(item.type || 0)">查看数据</el-button>
+                    <el-button type="primary" size="small" round @click="renderChart(item.type || 0)">重绘图表</el-button>
+                    <el-button type="primary" size="small" round @click="viewChartData(item.type || 0)">查看数据</el-button>
+                    <el-button type="primary" size="small" round @click="downloadChartData(item.type || 0)">下载数据</el-button>
                   </div>
                   
                   <!-- 图表容器 -->
@@ -612,14 +666,22 @@
             <template v-else-if="item.type === '6'">
               <el-collapse v-model="activeEcoService">
                 <el-collapse-item title="潜在供给" name="potentialSupply6">
-              <div class="parameter-control">
+                  <div class="parameter-control">
+                    <span>选择情景</span>
+                    <el-select v-model="scenario6" placeholder="请选择情景">
+                      <el-option label="基准情景" value="baseline"></el-option>
+                      <el-option label="优化情景" value="optimized"></el-option>
+                      <el-option label="发展情景" value="development"></el-option>
+                    </el-select>
+                  </div>
+                  <div class="parameter-control">
                     <span>服务指标</span>
                     <el-select v-model="indicators6" placeholder="请选择指标">
                       <el-option label="植被固碳量" value="vegetationCarbon"></el-option>
                       <el-option label="土壤固碳量" value="soilCarbon"></el-option>
                       <el-option label="碳通量" value="carbonFlux"></el-option>
                     </el-select>
-              </div>
+                  </div>
                   <div class="parameter-control">
                     <span>时间尺度</span>
                     <el-radio-group v-model="timeScale6">
@@ -649,8 +711,9 @@
                 <el-collapse-item title="供给赤字" name="deficit6">
                   <!-- 按钮组 - 添加查看数据按钮 -->
                   <div class="chart-controls">
-                    <el-button type="primary" size="small" @click="renderChart(item.type || 0)">重绘图表</el-button>
-                    <el-button type="primary" size="small" @click="viewChartData(item.type || 0)">查看数据</el-button>
+                    <el-button type="primary" size="small" round @click="renderChart(item.type || 0)">重绘图表</el-button>
+                    <el-button type="primary" size="small" round @click="viewChartData(item.type || 0)">查看数据</el-button>
+                    <el-button type="primary" size="small" round @click="downloadChartData(item.type || 0)">下载数据</el-button>
                   </div>
                   
                   <!-- 图表容器 -->
@@ -691,7 +754,15 @@
             <template v-else-if="item.type === '7'">
               <el-collapse v-model="activeEcoService">
                 <el-collapse-item title="潜在供给" name="potentialSupply7">
-              <div class="parameter-control">
+                  <div class="parameter-control">
+                    <span>选择情景</span>
+                    <el-select v-model="scenario7" placeholder="请选择情景">
+                      <el-option label="基准情景" value="baseline"></el-option>
+                      <el-option label="优化情景" value="optimized"></el-option>
+                      <el-option label="发展情景" value="development"></el-option>
+                    </el-select>
+                  </div>
+                  <div class="parameter-control">
                     <span>服务指标</span>
                     <el-select v-model="indicators7" placeholder="请选择指标">
                       <el-option label="农田产量" value="cropYield"></el-option>
@@ -728,8 +799,9 @@
                 <el-collapse-item title="供给赤字" name="deficit7">
                   <!-- 按钮组 - 添加查看数据按钮 -->
                   <div class="chart-controls">
-                    <el-button type="primary" size="small" @click="renderChart(item.type || 0)">重绘图表</el-button>
-                    <el-button type="primary" size="small" @click="viewChartData(item.type || 0)">查看数据</el-button>
+                    <el-button type="primary" size="small" round @click="renderChart(item.type || 0)">重绘图表</el-button>
+                    <el-button type="primary" size="small" round @click="viewChartData(item.type || 0)">查看数据</el-button>
+                    <el-button type="primary" size="small" round @click="downloadChartData(item.type || 0)">下载数据</el-button>
                   </div>
                   
                   <!-- 图表容器 -->
@@ -1007,6 +1079,16 @@ export default {
         panelsInitialized: false,
         mapRendered: false
       },
+      
+      // 添加场景模型变量
+      scenario0: 'baseline',
+      scenario1: 'baseline',
+      scenario2: 'baseline',
+      scenario3: 'baseline',
+      scenario4: 'baseline',
+      scenario5: 'baseline',
+      scenario6: 'baseline',
+      scenario7: 'baseline',
     };
   },
   created() {
@@ -2279,6 +2361,47 @@ export default {
         observer.observe(mapContainer);
       }
     },
+    
+    // 下载图表数据方法
+    downloadChartData(serviceType) {
+      const typeId = String(serviceType);
+      
+      const title = this.getChartTitle(typeId);
+      const supplyData = this.getSupplyData(typeId);
+      const demandData = this.getDemandData(typeId);
+      const balanceData = supplyData.map((supply, index) => supply - demandData[index]);
+      const months = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
+      
+      // 创建CSV内容
+      let csvContent = "月份,供给,需求,差额\n";
+      
+      for (let i = 0; i < 12; i++) {
+        csvContent += `${months[i]},${supplyData[i]},${demandData[i]},${balanceData[i]}\n`;
+      }
+      
+      // 创建Blob对象
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      
+      // 创建下载链接
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      
+      // 设置链接属性
+      link.setAttribute('href', url);
+      link.setAttribute('download', `${title}供需数据.csv`);
+      link.style.visibility = 'hidden';
+      
+      // 添加到DOM，触发点击后移除
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      this.$message({
+        message: `${title}数据已下载`,
+        type: 'success',
+        duration: 2000
+      });
+    },
   },
   watch: {
     // 监听路由参数变化
@@ -2464,7 +2587,7 @@ export default {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    font-size: 16px;
+    font-size: 14px;
     flex-shrink: 0;
 
     .close-button {

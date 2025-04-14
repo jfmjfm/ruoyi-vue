@@ -92,7 +92,7 @@
       <el-table-column label="案例名称" align="center" prop="caseName" />
       <el-table-column label="" align="center" prop="caseDir" />
       <el-table-column label="是否默认案例(0否 1是)" align="center" prop="isDefault" />
-      <el-table-column label="案例参数" align="center" prop="params" />
+      <el-table-column label="案例参数" align="center" prop="validparam" />
       <el-table-column label="案例描述" align="center" prop="description" />
       <el-table-column label="操作" align="center" class-name="small-padding fixed-width">
         <template slot-scope="scope">
@@ -136,6 +136,9 @@
         </el-form-item>
         <el-form-item label="是否默认案例(0否 1是)" prop="isDefault">
           <el-input v-model="form.isDefault" placeholder="请输入是否默认案例(0否 1是)" />
+        </el-form-item>
+        <el-form-item label="案例参数" prop="validparam">
+          <el-input v-model="form.validparam" type="textarea" placeholder="请输入内容" />
         </el-form-item>
         <el-form-item label="案例描述" prop="description">
           <el-input v-model="form.description" type="textarea" placeholder="请输入内容" />
@@ -182,7 +185,7 @@ export default {
         caseName: null,
         caseDir: null,
         isDefault: null,
-        params: null,
+        validparam: null,
         description: null,
       },
       // 表单参数
@@ -230,7 +233,7 @@ export default {
         caseName: null,
         caseDir: null,
         isDefault: null,
-        params: null,
+        validparam: null,
         description: null,
         createTime: null,
         updateTime: null,

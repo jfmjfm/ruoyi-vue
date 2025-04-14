@@ -100,6 +100,34 @@
         <el-form-item label="区域ID" prop="regionId">
           <el-input v-model="form.regionId" placeholder="请输入区域ID" />
         </el-form-item>
+        <el-divider content-position="center">服务案例信息</el-divider>
+        <el-row :gutter="10" class="mb8">
+          <el-col :span="1.5">
+            <el-button type="primary" icon="el-icon-plus" size="mini" @click="handleAddProjectServiceCase">添加</el-button>
+          </el-col>
+          <el-col :span="1.5">
+            <el-button type="danger" icon="el-icon-delete" size="mini" @click="handleDeleteProjectServiceCase">删除</el-button>
+          </el-col>
+        </el-row>
+        <el-table :data="projectServiceCaseList" :row-class-name="rowProjectServiceCaseIndex" @selection-change="handleProjectServiceCaseSelectionChange" ref="projectServiceCase">
+          <el-table-column type="selection" width="50" align="center" />
+          <el-table-column label="序号" align="center" prop="index" width="50"/>
+          <el-table-column label="案例名称" prop="caseName" width="150">
+            <template slot-scope="scope">
+              <el-input v-model="scope.row.caseName" placeholder="请输入案例名称" />
+            </template>
+          </el-table-column>
+          <el-table-column label="" prop="caseDir" width="150">
+            <template slot-scope="scope">
+              <el-input v-model="scope.row.caseDir" placeholder="请输入" />
+            </template>
+          </el-table-column>
+          <el-table-column label="是否默认案例(0否 1是)" prop="isDefault" width="150">
+            <template slot-scope="scope">
+              <el-input v-model="scope.row.isDefault" placeholder="请输入是否默认案例(0否 1是)" />
+            </template>
+          </el-table-column>
+        </el-table>
       </el-form>
       <div slot="footer" class="dialog-footer">
         <el-button type="primary" @click="submitForm">确 定</el-button>
@@ -120,6 +148,8 @@ export default {
       loading: true,
       // 选中数组
       ids: [],
+      // 子表选中数据
+      checkedProjectServiceCase: [],
       // 非单个禁用
       single: true,
       // 非多个禁用
@@ -130,6 +160,8 @@ export default {
       total: 0,
       // 项目区域-服务类型关联表格数据
       project_region_serviceList: [],
+      // 服务案例表格数据
+      projectServiceCaseList: [],
       // 弹出层标题
       title: "",
       // 是否显示弹出层
@@ -179,6 +211,7 @@ export default {
         regionId: null,
         serviceType: null
       };
+      this.projectServiceCaseList = [];
       this.resetForm("form");
     },
     /** 搜索按钮操作 */
@@ -209,6 +242,7 @@ export default {
       const id = row.id || this.ids
       getProject_region_service(id).then(response => {
         this.form = response.data;
+        this.projectServiceCaseList = response.data.projectServiceCaseList;
         this.open = true;
         this.title = "修改项目区域-服务类型关联";
       });
@@ -217,6 +251,7 @@ export default {
     submitForm() {
       this.$refs["form"].validate(valid => {
         if (valid) {
+          this.form.projectServiceCaseList = this.projectServiceCaseList;
           if (this.form.id != null) {
             updateProject_region_service(this.form).then(response => {
               this.$modal.msgSuccess("修改成功");
@@ -242,6 +277,36 @@ export default {
         this.getList();
         this.$modal.msgSuccess("删除成功");
       }).catch(() => {});
+    },
+	/** 服务案例序号 */
+    rowProjectServiceCaseIndex({ row, rowIndex }) {
+      row.index = rowIndex + 1;
+    },
+    /** 服务案例添加按钮操作 */
+    handleAddProjectServiceCase() {
+      let obj = {};
+      obj.caseName = "";
+      obj.caseDir = "";
+      obj.isDefault = "";
+      obj.validparam = "";
+      obj.description = "";
+      this.projectServiceCaseList.push(obj);
+    },
+    /** 服务案例删除按钮操作 */
+    handleDeleteProjectServiceCase() {
+      if (this.checkedProjectServiceCase.length == 0) {
+        this.$modal.msgError("请先选择要删除的服务案例数据");
+      } else {
+        const projectServiceCaseList = this.projectServiceCaseList;
+        const checkedProjectServiceCase = this.checkedProjectServiceCase;
+        this.projectServiceCaseList = projectServiceCaseList.filter(function(item) {
+          return checkedProjectServiceCase.indexOf(item.index) == -1
+        });
+      }
+    },
+    /** 复选框选中数据 */
+    handleProjectServiceCaseSelectionChange(selection) {
+      this.checkedProjectServiceCase = selection.map(item => item.index)
     },
     /** 导出按钮操作 */
     handleExport() {

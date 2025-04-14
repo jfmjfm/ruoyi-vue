@@ -1,5 +1,6 @@
 package com.ruoyi.project.domain;
 
+import java.util.List;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 import com.ruoyi.common.annotation.Excel;
@@ -9,7 +10,7 @@ import com.ruoyi.common.core.domain.BaseEntity;
  * 项目区域对象 project_region
  * 
  * @author ruoyi
- * @date 2025-03-20
+ * @date 2025-04-13
  */
 public class ProjectRegion extends BaseEntity
 {
@@ -25,6 +26,9 @@ public class ProjectRegion extends BaseEntity
     /** 区域描述 */
     @Excel(name = "区域描述")
     private String description;
+
+    /** 项目区域-服务类型关联信息 */
+    private List<ProjectRegionService> projectRegionServiceList;
 
     public void setId(Long id) 
     {
@@ -56,6 +60,16 @@ public class ProjectRegion extends BaseEntity
         return description;
     }
 
+    public List<ProjectRegionService> getProjectRegionServiceList()
+    {
+        return projectRegionServiceList;
+    }
+
+    public void setProjectRegionServiceList(List<ProjectRegionService> projectRegionServiceList)
+    {
+        this.projectRegionServiceList = projectRegionServiceList;
+    }
+
     @Override
     public String toString() {
         return new ToStringBuilder(this,ToStringStyle.MULTI_LINE_STYLE)
@@ -66,6 +80,7 @@ public class ProjectRegion extends BaseEntity
             .append("updateTime", getUpdateTime())
             .append("createBy", getCreateBy())
             .append("updateBy", getUpdateBy())
+            .append("projectRegionServiceList", getProjectRegionServiceList())
             .toString();
     }
 }

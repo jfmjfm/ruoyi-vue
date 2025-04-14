@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.project.mapper.ProjectServiceCaseMapper">
+    
+    <resultMap type="ProjectServiceCase" id="ProjectServiceCaseResult">
+        <result property="id"    column="id"    />
+        <result property="regionServiceId"    column="region_service_id"    />
+        <result property="caseName"    column="case_name"    />
+        <result property="caseDir"    column="case_dir"    />
+        <result property="isDefault"    column="is_default"    />
+        <result property="validparam"    column="validparam"    />
+        <result property="description"    column="description"    />
+        <result property="createTime"    column="create_time"    />
+        <result property="updateTime"    column="update_time"    />
+        <result property="createBy"    column="create_by"    />
+        <result property="updateBy"    column="update_by"    />
+    </resultMap>
+
+    <sql id="selectProjectServiceCaseVo">
+        select id, region_service_id, case_name, case_dir, is_default, validparam, description, create_time, update_time, create_by, update_by from project_service_case
+    </sql>
+
+    <select id="selectProjectServiceCaseList" parameterType="ProjectServiceCase" resultMap="ProjectServiceCaseResult">
+        <include refid="selectProjectServiceCaseVo"/>
+        <where>  
+            <if test="regionServiceId != null "> and region_service_id = #{regionServiceId}</if>
+            <if test="caseName != null  and caseName != ''"> and case_name like concat('%', #{caseName}, '%')</if>
+            <if test="caseDir != null  and caseDir != ''"> and case_dir = #{caseDir}</if>
+            <if test="isDefault != null "> and is_default = #{isDefault}</if>
+            <if test="validparam != null  and validparam != ''"> and validparam = #{validparam}</if>
+            <if test="description != null  and description != ''"> and description = #{description}</if>
+        </where>
+    </select>
+    
+    <select id="selectProjectServiceCaseById" parameterType="Long" resultMap="ProjectServiceCaseResult">
+        <include refid="selectProjectServiceCaseVo"/>
+        where id = #{id}
+    </select>
+
+    <insert id="insertProjectServiceCase" parameterType="ProjectServiceCase" useGeneratedKeys="true" keyProperty="id">
+        insert into project_service_case
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="regionServiceId != null">region_service_id,</if>
+            <if test="caseName != null and caseName != ''">case_name,</if>
+            <if test="caseDir != null and caseDir != ''">case_dir,</if>
+            <if test="isDefault != null">is_default,</if>
+            <if test="validparam != null">validparam,</if>
+            <if test="description != null">description,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateTime != null">update_time,</if>
+            <if test="createBy != null">create_by,</if>
+            <if test="updateBy != null">update_by,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="regionServiceId != null">#{regionServiceId},</if>
+            <if test="caseName != null and caseName != ''">#{caseName},</if>
+            <if test="caseDir != null and caseDir != ''">#{caseDir},</if>
+            <if test="isDefault != null">#{isDefault},</if>
+            <if test="validparam != null">#{validparam},</if>
+            <if test="description != null">#{description},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="updateBy != null">#{updateBy},</if>
+         </trim>
+    </insert>
+
+    <update id="updateProjectServiceCase" parameterType="ProjectServiceCase">
+        update project_service_case
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="regionServiceId != null">region_service_id = #{regionServiceId},</if>
+            <if test="caseName != null and caseName != ''">case_name = #{caseName},</if>
+            <if test="caseDir != null and caseDir != ''">case_dir = #{caseDir},</if>
+            <if test="isDefault != null">is_default = #{isDefault},</if>
+            <if test="validparam != null">validparam = #{validparam},</if>
+            <if test="description != null">description = #{description},</if>
+            <if test="createTime != null">create_time = #{createTime},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="createBy != null">create_by = #{createBy},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteProjectServiceCaseById" parameterType="Long">
+        delete from project_service_case where id = #{id}
+    </delete>
+
+    <delete id="deleteProjectServiceCaseByIds" parameterType="String">
+        delete from project_service_case where id in 
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+</mapper>

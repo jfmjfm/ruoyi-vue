@@ -2,12 +2,13 @@ package com.ruoyi.project.mapper;
 
 import java.util.List;
 import com.ruoyi.project.domain.ProjectRegion;
+import com.ruoyi.project.domain.ProjectRegionService;
 
 /**
  * 项目区域Mapper接口
  * 
  * @author ruoyi
- * @date 2025-03-20
+ * @date 2025-04-13
  */
 public interface ProjectRegionMapper 
 {
@@ -58,4 +59,29 @@ public interface ProjectRegionMapper
      * @return 结果
      */
     public int deleteProjectRegionByIds(Long[] ids);
+
+    /**
+     * 批量删除项目区域-服务类型关联
+     * 
+     * @param ids 需要删除的数据主键集合
+     * @return 结果
+     */
+    public int deleteProjectRegionServiceByRegionIds(Long[] ids);
+    
+    /**
+     * 批量新增项目区域-服务类型关联
+     * 
+     * @param projectRegionServiceList 项目区域-服务类型关联列表
+     * @return 结果
+     */
+    public int batchProjectRegionService(List<ProjectRegionService> projectRegionServiceList);
+    
+
+    /**
+     * 通过项目区域主键删除项目区域-服务类型关联信息
+     * 
+     * @param id 项目区域ID
+     * @return 结果
+     */
+    public int deleteProjectRegionServiceByRegionId(Long id);
 }
