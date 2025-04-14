@@ -362,56 +362,75 @@ export default {
         query: { regionId: row.id }
       });
     },
+    /** 准备服务类型数据 */
+    prepareServiceData() {
+      // 构建服务类型关联数据
+      const projectRegionServiceList = [];
+      const selectedServices = [];
+
+      for (const [key, isSelected] of Object.entries(this.selectedServiceTypes)) {
+        if (isSelected) {
+          const serviceType = this.serviceTypeOptions.find(item => item.dictValue === key);
+          if (serviceType) {
+            // 添加到关联列表
+            projectRegionServiceList.push({
+              serviceType: key,
+              regionId: this.form.id // 仅在编辑时包含regionId
+            });
+            // 添加到描述列表
+            selectedServices.push(serviceType.dictLabel);
+          }
+        }
+      }
+
+      return {
+        projectRegionServiceList,
+        description: selectedServices.join("、")
+      };
+    },
     /** 提交按钮 */
     submitForm() {
       this.$refs["form"].validate(valid => {
-        if (valid) {
-          if (this.selectedServices.length === 0) {
-            this.serviceValidationError = true;
-            return;
-          }
-          this.serviceValidationError = false;
-          
-          // 构建服务类型关联数据
-          const projectRegionServiceList = [];
-          for (const key in this.selectedServiceTypes) {
-            if (this.selectedServiceTypes[key]) {
-              const found = this.serviceTypeOptions.find(item => item.dictValue === key);
-              if (found) {
-                projectRegionServiceList.push({
-                  serviceType: key, // 服务类型编码
-                  regionId: this.form.id // 编辑时传递regionId
-                });
-              }
-            }
-          }
-          
-          // 将服务类型列表添加到表单数据中 - 使用projectRegionServiceList名称与后端实体对应
-          this.form.projectRegionServiceList = projectRegionServiceList;
-          
-          // 保留description字段以兼容现有逻辑
-          this.form.description = this.selectedServices.join("、");
-          
-          console.log("提交的表单数据:", JSON.stringify(this.form));
-          
-          if (this.form.id != null) {
-            updateProject_region(this.form).then(response => {
-              this.$modal.msgSuccess("修改成功");
-              this.open = false;
-              this.getList();
-            }).catch(error => {
-              console.error("更新失败:", error);
-            });
-          } else {
-            addProject_region(this.form).then(response => {
-              this.$modal.msgSuccess("新增成功");
-              this.open = false;
-              this.getList();
-            }).catch(error => {
-              console.error("添加失败:", error);
-            });
-          }
+        if (!valid) {
+          return;
         }
+
+        // 验证是否选择了服务类型
+        if (Object.values(this.selectedServiceTypes).filter(Boolean).length === 0) {
+          this.serviceValidationError = true;
+          return;
+        }
+        this.serviceValidationError = false;
+
+        // 准备表单数据
+        const { projectRegionServiceList, description } = this.prepareServiceData();
+        const formData = {
+          ...this.form,
+          projectRegionServiceList,
+          description
+        };
+
+        // 记录调试信息
+        console.log("提交的表单数据:", {
+          formType: this.form.id ? "更新" : "新增",
+          data: formData
+        });
+
+        // 提交表单
+        const request = this.form.id ? 
+          updateProject_region(formData) : 
+          addProject_region(formData);
+
+        request
+          .then(response => {
+            this.$modal.msgSuccess(`${this.form.id ? "修改" : "新增"}成功`);
+            this.open = false;
+            this.getList();
+          })
+          .catch(error => {
+            console.error(`${this.form.id ? "更新" : "添加"}失败:`, error);
+            this.$modal.msgError(`操作失败: ${error.message || "未知错误"}`);
+          });
       });
     },
     /** 删除按钮操作 */
