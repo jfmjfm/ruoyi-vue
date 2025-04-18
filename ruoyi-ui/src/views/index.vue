@@ -3,7 +3,51 @@
     <el-row :gutter="20">
       <el-col :sm="24" :lg="24" style="padding-left: 20px">
         <el-row>
-            <h2>物理模型概述</h2>
+            <h3 class="section-title">物理模型概述</h3>
+        <el-row :gutter="20">
+          <el-col :span="3">
+            <div class="model-container">
+              <img src="@/assets/images/VIC_model.png" alt="VIC模型" class="model-image">
+              <p class="model-name">VIC模型</p>
+            </div>
+          </el-col>
+          <el-col :span="3">
+            <div class="model-container">
+              <img src="@/assets/images/SWAT_model.png" alt="SWAT模型" class="model-image">
+              <p class="model-name">SWAT模型</p>
+            </div>
+          </el-col>
+          <el-col :span="4">
+            <div class="model-container">
+              <img src="@/assets/images/RWEQ_model.png" alt="RWEQ模型" class="model-image">
+              <p class="model-name">RWEQ模型</p>
+            </div>
+          </el-col>
+          <el-col :span="4">
+            <div class="model-container">
+              <img src="@/assets/images/HSPF_model.png" alt="HSPF模型" class="model-image">
+              <p class="model-name">HSPF模型</p>
+            </div>
+          </el-col>
+          <el-col :span="3">
+            <div class="model-container">
+              <img src="@/assets/images/LPJ_model.png" alt="LPJ模型" class="model-image">
+              <p class="model-name">LPJ模型</p>
+            </div>
+          </el-col>
+          <el-col :span="3">
+            <div class="model-container">
+              <img src="@/assets/images/DSSAT_model.png" alt="DSSAT模型" class="model-image">
+              <p class="model-name">DSSAT模型</p>
+            </div>
+          </el-col>
+          <el-col :span="3">
+            <div class="model-container">
+              <img src="@/assets/images/WRF_model.png" alt="WRF模型" class="model-image">
+              <p class="model-name">WRF模型</p>
+            </div>
+          </el-col>
+        </el-row>
         <el-table :data="serviceData" border stripe stripe-class="light-blue-row" style="width: 100%" class="custom-table">
           <el-table-column prop="serviceName" label="服务名称" width="120"></el-table-column>
           <el-table-column prop="serviceDefinition" label="服务定义"></el-table-column>
@@ -240,5 +284,44 @@ export default {
   ::v-deep .el-table__fixed-header-wrapper th.el-table__cell {
     background-color: rgb(48, 65, 86) !important;
   }
+}
+
+.section-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: #34495e;
+  margin-bottom: 15px;
+  margin-top: 10px;
+}
+
+.model-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 10px;
+  margin-top: 10px;
+}
+
+.model-image {
+  width: 120%;
+  height: 135px;
+  object-fit: contain;
+  border-radius: 4px;
+  background-color: #f7f7f7;
+  padding: 10px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  transition: transform 0.3s;
+}
+
+.model-image:hover {
+  transform: scale(1.25);
+}
+
+.model-name {
+  text-align: center;
+  margin-top: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
 }
 </style>

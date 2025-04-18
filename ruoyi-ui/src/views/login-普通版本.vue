@@ -1,10 +1,7 @@
 <template>
-  <div class="login" @contextmenu.prevent @click="showForm" v-if="!formVisible">
-    <img src="../assets/images/login-bg.png" class="profile-image" alt="Profile" />
-  </div>
-  <div class="login" @contextmenu.prevent v-else>
+  <div class="login">
     <el-form ref="loginForm" :model="loginForm" :rules="loginRules" class="login-form">
-      <h3 class="title">欢迎使用生态价值核算平台</h3>
+      <h3 class="title">欢迎使用</h3>
       <el-form-item prop="username">
         <el-input
           v-model="loginForm.username"
@@ -57,6 +54,10 @@
         </div>
       </el-form-item>
     </el-form>
+    <!--  底部  -->
+    <div class="el-login-footer">
+      <span>版权所有 © 2025 中国科学院生态环境研究中心生态系统过程与服务组.</span>
+    </div>
   </div>
 </template>
 
@@ -69,7 +70,6 @@ export default {
   name: "Login",
   data() {
     return {
-      formVisible: false,
       codeUrl: "",
       loginForm: {
         username: "admin",
@@ -108,9 +108,6 @@ export default {
     this.getCookie();
   },
   methods: {
-    showForm() {
-      this.formVisible = true;
-    },
     getCode() {
       getCodeImg().then(res => {
         this.captchaEnabled = res.captchaEnabled === undefined ? true : res.captchaEnabled;
@@ -159,33 +156,14 @@ export default {
 </script>
 
 <style rel="stylesheet/scss" lang="scss">
-html, body {
-  margin: 0;
-  padding: 0;
-  height: 100%;
-  overflow: hidden;
-}
-
 .login {
   display: flex;
   justify-content: center;
   align-items: center;
-  height: 100vh;
-  width: 100vw;
-  background-color: #1a2e4d;
-  position: relative;
-  overflow: hidden;
+  height: 100%;
+  background-image: url("../assets/images/login-background.jpg");
+  background-size: cover;
 }
-
-.profile-image {
-  max-width: 800px;
-  max-height: 800px;
-  width: auto;
-  height: auto;
-  border-radius: 50%;
-  object-fit: contain;
-}
-
 .title {
   margin: 0px auto 30px auto;
   text-align: center;

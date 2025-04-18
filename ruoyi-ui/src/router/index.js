@@ -104,7 +104,7 @@ export const constantRoutes = [
         component: () => import('@/views/project/prjGIS/index'),
         name: 'ProjectGIS',
         hidden: true,
-        meta: { title: 'GIS定位', icon: 'el-icon-map-location' }
+        meta: { title: '价值核算', icon: 'el-icon-map-location' }
       },
       {
         path: 'project_modelcalibration',

@@ -5,7 +5,7 @@
          class="student-detail-panel"
          :class="{ 'panel-collapsed': detailCollapsed }">
       <div class="panel-header">
-        <span>区域详细信息</span>
+        <span style="font-size: smaller;">区域详细信息</span>
         <div class="panel-controls">
           <i :class="detailCollapsed ? 'el-icon-arrow-down' : 'el-icon-arrow-up'" @click="detailCollapsed = !detailCollapsed"></i>
         </div>
@@ -2824,18 +2824,19 @@ export default {
   position: absolute;
   left: 3px;
   top: 5px;
-  width: 50px;
+  width: 46px;
   background: #34495e;
   z-index: 1000;
   display: flex;
   flex-direction: column;
-  padding-top: 5px;
+  padding-top: 4px;
+  padding-bottom: 4px;
   justify-content: flex-start;
   border-radius: 4px;
   box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
 
   .map-control-button {
-    height: 60px;
+    height: 46px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -2844,11 +2845,15 @@ export default {
     color: #fff;
     transition: all 0.3s;
     padding: 0;
-    margin-bottom: 8px;
+    margin-bottom: 4px;
 
     &:first-child {
-      height: 60px;
+      height: 46px;
       padding: 0;
+    }
+
+    &:last-child {
+      margin-bottom: 0;
     }
 
     &:hover {
@@ -2868,26 +2873,26 @@ export default {
     }
 
     i {
-      font-size: 20px;
-      width: 36px;
-      height: 36px;
+      font-size: 18px;
+      width: 32px;
+      height: 32px;
       border-radius: 50%;
       background-color: rgba(255, 255, 255, 0.2);
       display: flex;
       align-items: center;
       justify-content: center;
       transition: all 0.3s;
-      margin-bottom: 3px;
+      margin-bottom: 2px;
     }
 
     .map-control-title {
-      font-size: 11px;
+      font-size: 10px;
       text-align: center;
       line-height: 1.2;
       width: 100%;
       
       div {
-        height: 11px;
+        height: 10px;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -3129,7 +3134,7 @@ export default {
   right: 12px !important; /* 调整箭头右侧间距 */
   top: 50% !important; /* 垂直居中 */
   transform: translateY(-50%) rotate(-90deg) !important; /* 添加垂直居中的transform */
-  font-size: 16px !important; /* 增大箭头尺寸 */
+  font-size: 12px !important; /* 增大箭头尺寸 */
   transition: transform 0.3s !important;
   z-index: 2 !important; /* 确保箭头在最上层 */
 }
