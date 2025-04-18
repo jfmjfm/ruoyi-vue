@@ -14,9 +14,9 @@ BEGIN
     SET global_region_name = (SELECT region_name FROM project_region WHERE id = NEW.region_id);
     SET global_service_name = (SELECT dict_label FROM sys_dict_data WHERE dict_value = NEW.service_type and dict_type = 'sys_service_type');
 
-    INSERT INTO project_service_case (region_service_id, case_name, case_dir, is_default)
-    VALUES (NEW.id, CONCAT(global_region_name, '-', global_service_name, '-default'), 'default path', 1);
-END;
+    INSERT INTO project_service_case (region_service_id, case_name, case_dir, is_default,description)
+    VALUES (NEW.id, CONCAT(global_region_name, '-', global_service_name, '-baseline'), 'default path', 1,'基准场景');
+END
 
 //
 

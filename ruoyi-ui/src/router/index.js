@@ -105,6 +105,13 @@ export const constantRoutes = [
         name: 'ProjectGIS',
         hidden: true,
         meta: { title: 'GIS定位', icon: 'el-icon-map-location' }
+      },
+      {
+        path: 'project_modelcalibration',
+        component: () => import('@/views/project/project_service_case/calibration'),
+        name: '参数率定',
+        hidden: true,
+        meta: { title: '模型参数率定', icon: 'el-icon-document' }
       }
     ]
   }

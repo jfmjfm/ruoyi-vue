@@ -43,8 +43,7 @@
     <el-table v-loading="loading" :data="project_service_caseList" @selection-change="handleSelectionChange">
       <el-table-column type="selection" width="55" align="center" />
       <el-table-column label="案例名称" align="left" prop="caseName" width="250" />
-      <el-table-column label="远程服务" align="left" prop="caseDir" min-width="500" />
-      <el-table-column label="模型参数" align="left" prop="validparam" min-width="150" />
+      <el-table-column label="模型参数" align="left" prop="validparam" min-width="500" />
       <el-table-column label="当前状态" align="left" prop="description" width="150" />
       <el-table-column label="操作" align="center" class-name="small-padding fixed-width" width="100">
         <template slot-scope="scope">
@@ -52,9 +51,9 @@
             size="mini"
             type="text"
             icon="el-icon-edit"
-            @click="handleUpdate(scope.row)"
+            @click="handleCalibration(scope.row)"
             v-hasPermi="['project:project_service_case:edit']"
-          >修改</el-button>
+          >开始率定</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -73,16 +72,11 @@
         <el-form-item label="案例名称" prop="caseName">
           <el-input v-model="form.caseName" placeholder="请输入案例名称" readonly />
         </el-form-item>
-        <el-form-item label="远程服务" prop="caseDir">
-          <el-input v-model="form.caseDir" placeholder="请输入保存路径" readonly />
-        </el-form-item>
         <el-form-item label="模型参数" prop="validparam">
-          <el-button type="primary" plain @click="handleValidparam">使用默认值</el-button>
-          <el-input v-model="form.validparam" placeholder="请输入模型参数" readonly />
-          <div v-if="validparamError" class="el-form-item__error">模型参数不能为空</div>
+          <el-input v-model="form.validparam" placeholder="请输入模型参数" />
         </el-form-item>
         <el-form-item label="当前状态" prop="description">
-          <el-input v-model="form.description" type="textarea" placeholder="请输入内容" readonly/>
+          <el-input v-model="form.description" type="textarea" placeholder="请输入内容" />
         </el-form-item>
       </el-form>
       <div slot="footer" class="dialog-footer">
@@ -95,7 +89,6 @@
 
 <script>
 import { listProject_service_case, getProject_service_case, delProject_service_case, addProject_service_case, updateProject_service_case } from "@/api/project/project_service_case";
-import { getDicts } from "@/api/system/dict/data";
 
 export default {
   name: "Project_service_case",
@@ -119,8 +112,6 @@ export default {
       title: "",
       // 是否显示弹出层
       open: false,
-      // 参数错误标志
-      validparamError: false,
       // 查询参数
       queryParams: {
         pageNum: 1,
@@ -128,7 +119,7 @@ export default {
         regionServiceId: null,
         caseName: null,
         caseDir: null,
-        isDefault: null,
+        isDefault: 1,
         validparam: null,
         description: null,
       },
@@ -148,34 +139,24 @@ export default {
         isDefault: [
           { required: true, message: "是否默认案例(0否 1是)不能为空", trigger: "blur" }
         ],
-        validparam: [
-          { required: true, message: "模型参数不能为空", trigger: "blur" }
-        ],
       }
     };
   },
   created() {
     this.getList();
-    this.$message.info("本页面用于检查模型配置文件");
+    this.$message.info("本页面用于检查模型参数配置");
   },
   methods: {
     /** 查询服务案例列表 */
     getList() {
       this.loading = true;
-      // 获取所有数据，以便前端过滤
       const params = {
         ...this.queryParams,
-        pageSize: 100, // 设置较大的页面大小
         _t: new Date().getTime()
       };
       listProject_service_case(params).then(response => {
-        // 过滤数据，使用更宽松的匹配方式
-        this.project_service_caseList = response.rows.filter(item => {
-          if (!item.description) return false;
-          const desc = item.description.toString().trim();
-          return desc.includes('默认情景');
-        });
-        this.total = this.project_service_caseList.length;
+        this.project_service_caseList = response.rows;
+        this.total = response.total;
         this.loading = false;
       });
     },
@@ -223,6 +204,14 @@ export default {
       this.open = true;
       this.title = "添加服务案例";
     },
+    /** 开始率定按钮操作 */
+    handleCalibration(row) {
+      const id = row.id;
+      this.$router.push({
+        path: '/project/project_modelcalibration',
+        query: { id: id }
+      });
+    },
     /** 修改按钮操作 */
     handleUpdate(row) {
       this.reset();
@@ -233,69 +222,20 @@ export default {
         this.title = "修改服务案例";
       });
     },
-    /** 处理使用默认参数按钮点击 */
-    handleValidparam() {
-      if (!this.form.caseName) {
-        return;
-      }
-      
-      // 从案例名称中提取服务类型
-      const caseName = this.form.caseName;
-      const parts = caseName.split('-');
-      
-      // 检查是否能提取服务类型
-      if (parts.length < 2) {
-        return;
-      }
-      
-      // 提取服务类型（位于第二个位置）
-      const serviceType = parts[1].trim();
-      
-      if (!serviceType) {
-        return;
-      }
-      
-      // 查询字典数据
-      getDicts("sys_model_para").then(response => {
-        const dictDatas = response.data;
-        
-        // 查找匹配的字典项
-        const matchedDict = dictDatas.find(dict => dict.dictLabel === serviceType);
-        
-        if (matchedDict) {
-          // 更新validparam的值
-          this.form.validparam = matchedDict.dictValue;
-          // 清除错误标志
-          this.validparamError = false;
-        }
-      }).catch(error => {
-        console.error("获取字典数据失败", error);
-      });
-    },
     /** 提交按钮 */
     submitForm() {
-      // 先检查模型参数是否为空
-      if (!this.form.validparam || this.form.validparam.trim() === '') {
-        // 设置错误标志
-        this.validparamError = true;
-        return;
-      }
-      
-      // 清除错误标志
-      this.validparamError = false;
-
-      if (this.form.description === '默认情景') {
-        this.form.description = '模型配置';
-      }
+      this.form.description = '参数率定';
       this.$refs["form"].validate(valid => {
         if (valid) {
           if (this.form.id != null) {
             updateProject_service_case(this.form).then(response => {
+              this.$modal.msgSuccess("修改成功");
               this.open = false;
               this.getList();
             });
           } else {
             addProject_service_case(this.form).then(response => {
+              this.$modal.msgSuccess("新增成功");
               this.open = false;
               this.getList();
             });

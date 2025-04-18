@@ -27,7 +27,7 @@ public class ProjectServiceCase extends BaseEntity
     private String caseName;
 
     /**  */
-    @Excel(name = "")
+    @Excel(name = "保存路径")
     private String caseDir;
 
     /** 是否默认案例(0否 1是) */

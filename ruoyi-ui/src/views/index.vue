@@ -21,7 +21,7 @@
 
     <el-row style="margin-top: 20px; margin-bottom: 20px;">
       <el-col :span="24" style="text-align: center;">
-        <el-button type="primary" size="large" @click="handleStartUsing" style="background-color: #336699; border-color: #336699;">开始使用</el-button>
+        <el-button type="primary" size="large" @click="handleStartUsing" style="background-color: #34495e; border-color: #34495e;">开始使用</el-button>
       </el-col>
     </el-row>
   </div>
@@ -215,7 +215,7 @@ export default {
         background-color: rgb(48, 65, 86) !important;
         color: white !important;
         font-weight: 600;
-        border-bottom: 1px solid #294c73;
+        border-bottom: 1px solidrgb(219, 95, 12);
         padding: 12px 0;
         text-align: center !important; /* 表头文字居中 */
       }
