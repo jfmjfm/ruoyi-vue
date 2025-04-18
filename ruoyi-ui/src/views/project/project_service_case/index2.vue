@@ -155,7 +155,7 @@ export default {
         _t: new Date().getTime()
       };
       listProject_service_case(params).then(response => {
-        this.project_service_caseList = response.rows;
+        this.project_service_caseList = response.rows.filter(item => item.description === '模型配置');
         this.total = response.total;
         this.loading = false;
       });

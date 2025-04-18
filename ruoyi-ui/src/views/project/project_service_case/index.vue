@@ -165,17 +165,30 @@ export default {
       // 获取所有数据，以便前端过滤
       const params = {
         ...this.queryParams,
-        pageSize: 100, // 设置较大的页面大小
+        pageNum: 1,
+        pageSize: 100, // 设置较大的页面大小以获取所有数据
         _t: new Date().getTime()
       };
       listProject_service_case(params).then(response => {
         // 过滤数据，使用更宽松的匹配方式
-        this.project_service_caseList = response.rows.filter(item => {
+        const filteredData = response.rows.filter(item => {
           if (!item.description) return false;
           const desc = item.description.toString().trim();
           return desc.includes('默认情景');
         });
-        this.total = this.project_service_caseList.length;
+        
+        // 计算总数据量
+        this.total = filteredData.length;
+        
+        // 手动处理分页
+        const pageSize = this.queryParams.pageSize;
+        const pageNum = this.queryParams.pageNum;
+        const startIndex = (pageNum - 1) * pageSize;
+        const endIndex = Math.min(startIndex + pageSize, filteredData.length);
+        
+        // 设置当前页数据
+        this.project_service_caseList = filteredData.slice(startIndex, endIndex);
+        
         this.loading = false;
       });
     },
