@@ -46,7 +46,7 @@
           :loading="loading"
           size="medium"
           type="primary"
-          style="width:100%;"
+          class="login-button"
           @click.native.prevent="handleLogin"
         >
           <span v-if="!loading">登 录</span>
@@ -173,6 +173,7 @@ html, body {
   height: 100vh;
   width: 100vw;
   background-color: #1a2e4d;
+  background-image: linear-gradient(135deg, #1a2e4d 0%, #2c3e50 100%);
   position: relative;
   overflow: hidden;
 }
@@ -184,45 +185,85 @@ html, body {
   height: auto;
   border-radius: 50%;
   object-fit: contain;
+  box-shadow: 0 0 30px rgba(0, 0, 0, 0.2);
 }
 
 .title {
   margin: 0px auto 30px auto;
   text-align: center;
-  color: #707070;
+  color: #ffffff;
+  background-color: #2c5282;
+  padding: 15px 0;
+  border-radius: 4px;
+  font-size: 20px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
 }
 
 .login-form {
-  border-radius: 6px;
-  background: #ffffff;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.95);
   width: 400px;
   padding: 25px 25px 5px 25px;
+  box-shadow: 0 5px 25px rgba(0, 0, 0, 0.2);
+  
   .el-input {
-    height: 38px;
+    height: 42px;
+    
     input {
-      height: 38px;
+      height: 42px;
+      background-color: #f5f7fa;
+      border-radius: 4px;
+      border: 1px solid #e4e7ed;
+      
+      &:focus {
+        border-color: #2c5282;
+      }
     }
   }
+  
   .input-icon {
     height: 39px;
     width: 14px;
     margin-left: 2px;
+    color: #5e6d82;
+  }
+  
+  .el-checkbox {
+    color: #5e6d82;
+  }
+  
+  .login-button {
+    width: 100%;
+    background-color: #2c5282;
+    border-color: #2c5282;
+    height: 42px;
+    font-size: 16px;
+    
+    &:hover, &:focus {
+      background-color: #3c73b3;
+      border-color: #3c73b3;
+    }
   }
 }
+
 .login-tip {
   font-size: 13px;
   text-align: center;
   color: #bfbfbf;
 }
+
 .login-code {
   width: 33%;
   height: 38px;
   float: right;
+  
   img {
     cursor: pointer;
     vertical-align: middle;
+    border-radius: 4px;
   }
 }
+
 .el-login-footer {
   height: 40px;
   line-height: 40px;
@@ -235,7 +276,9 @@ html, body {
   font-size: 12px;
   letter-spacing: 1px;
 }
+
 .login-code-img {
-  height: 38px;
+  height: 42px;
+  border-radius: 4px;
 }
 </style>
