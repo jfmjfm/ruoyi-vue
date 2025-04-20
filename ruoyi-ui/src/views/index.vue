@@ -303,7 +303,7 @@ export default {
 }
 
 .model-image {
-  width: 120%;
+  width: 100%;
   height: 135px;
   object-fit: contain;
   border-radius: 4px;

@@ -98,6 +98,18 @@
                 </el-select>
                 <span class="param-desc">模型评价指标</span>
               </el-form-item>
+            <el-form-item label="上传观测数据">
+              <el-tooltip content="严格按照模板格式提供观察数据" placement="top">
+                <el-button type="primary" size="small" @click="downloadTemplate">下载模板</el-button>
+              </el-tooltip>
+              <el-tooltip content="请先点击'下载模板'按钮" placement="top" :disabled="templateDownloaded">
+                <el-button type="primary" size="small" @click="uploadData" :disabled="!templateDownloaded">上传数据</el-button>
+              </el-tooltip>
+              <el-tooltip content="请先点击'上传数据'按钮" placement="top" :disabled="dataUploaded">
+                <el-button type="primary" size="small" @click="viewData" :disabled="!dataUploaded">查看数据</el-button>
+              </el-tooltip>
+              <span class="param-desc">请上传观测数据并检查数据格式</span>
+            </el-form-item>
             </el-form>
           </div>
         </el-card>
@@ -106,7 +118,9 @@
 
     <!-- 添加一个底部按钮区域 -->
     <div class="action-bar">
-      <el-button type="primary" @click="startCalibration" size="medium">开始率定</el-button>
+      <el-tooltip content="请先上传观测数据" placement="top" :disabled="dataUploaded">
+        <el-button type="primary" @click="startCalibration" size="medium" :disabled="!dataUploaded">开始率定</el-button>
+      </el-tooltip>
     </div>
   </div>
 </template>
@@ -140,6 +154,10 @@ export default {
       caseId: this.$route.query.id || null,
       // 加载状态
       loading: false,
+      
+      // 按钮状态控制
+      templateDownloaded: false,
+      dataUploaded: false,
       
       // 模型介绍数据映射
       modelIntroductions: {
@@ -426,7 +444,24 @@ export default {
       } else {
         return require("@/assets/images/SWAT_model.png"); // 默认图片
       }
-    }
+    },
+    
+    // 下载模板
+    downloadTemplate() {
+      this.$message.success("模板下载成功");
+      this.templateDownloaded = true;
+    },
+    
+    // 上传数据
+    uploadData() {
+      this.$message.success("数据上传成功");
+      this.dataUploaded = true;
+    },
+    
+    // 查看数据
+    viewData() {
+      this.$message.success("查看数据");
+    },
   }
 };
 </script>
