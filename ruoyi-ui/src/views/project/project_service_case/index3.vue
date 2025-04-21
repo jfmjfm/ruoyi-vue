@@ -60,7 +60,7 @@
           icon="el-icon-view"
           @click="handleScenarioAnalysis(scope.row)"
           v-hasPermi="['project:project_service_case:analysis']"
-        >情景分析</el-button>
+        >对比情景</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -327,6 +327,15 @@ export default {
       this.download('project/project_service_case/export', {
         ...this.queryParams
       }, `project_service_case_${new Date().getTime()}.xlsx`)
+    },
+    /** 对比情景分析 */
+    handleScenarioAnalysis(row) {
+      this.$router.push({
+        path: '/project/project_scenario',
+        query: {
+          region_service_id: row.regionServiceId
+        }
+      });
     },
     // 下拉框变化时更新案例名称
     handleChange(val, field) {

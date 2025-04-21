@@ -112,6 +112,13 @@ export const constantRoutes = [
         name: '参数率定',
         hidden: true,
         meta: { title: '模型参数率定', icon: 'el-icon-document' }
+      },
+      {
+        path: 'project_scenario',
+        component: () => import('@/views/project/project_service_case/scenario'),
+        name: '对比情景',
+        hidden: true,
+        meta: { title: '对比情景', icon: 'el-icon-document' }
       }
     ]
   }
