@@ -189,7 +189,7 @@ export default {
         _t: new Date().getTime()
       };
       listProject_service_case(params).then(response => {
-        this.project_service_caseList = response.rows.filter(item => item.isDefault === 1);
+        this.project_service_caseList = response.rows;
         this.total = response.total;
         this.loading = false;
       });

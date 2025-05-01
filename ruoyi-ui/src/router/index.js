@@ -57,6 +57,12 @@ export const constantRoutes = [
     hidden: true
   },
   {
+    path: '/bigscreen',
+    component: () => import('@/views/bigscreen'),
+    hidden: true,
+    meta: { title: '大屏展示', icon: 'el-icon-monitor' }
+  },
+  {
     path: '/401',
     component: () => import('@/views/error/401'),
     hidden: true

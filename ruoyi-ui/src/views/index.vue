@@ -54,7 +54,7 @@
           <el-table-column prop="physicalModel" label="物理模型"></el-table-column>
           <el-table-column prop="physicalIndicator" label="物理指标"></el-table-column>
           <el-table-column prop="paraCalibration" label="参数率定方法"></el-table-column>
-          <el-table-column prop="modeCalculation" label="并行计算框架"></el-table-column>
+          <el-table-column prop="modeCalculation" label="学生突出贡献"></el-table-column>
         </el-table>
         </el-row>
       </el-col>
@@ -89,18 +89,20 @@ export default {
           flood_regulation: "洪水调蓄",
           windbreak_sand: "防风固沙",
           carbon_fixation: "固碳服务",
-          climate_regulation: "食物供给"
+          climate_regulation: "气候调节",
+          food_supply: "食物供给"
         },
         {
           attribute: "服务定义",
-          water_conservation: "枯水期基流中众数",
+          water_conservation: "枯水期基流众数",
           water_supply: "年均径流量",
           soil_conservation: "土壤侵蚀量",
           water_purification: "氮磷负荷量",
-          flood_regulation: "洪峰淹没面积，持续时间",
+          flood_regulation: "洪峰，淹没面积，持续时间",
           windbreak_sand: "沙尘通量",
           carbon_fixation: "植被固碳量",
-          climate_regulation: "干物质量"
+          climate_regulation: "空气质量",
+          food_supply: "干物质量"
         },
         {
           attribute: "物理模型",
@@ -111,7 +113,8 @@ export default {
           flood_regulation: "HSPF+DELFT3D",
           windbreak_sand: "RWEQ",
           carbon_fixation: "LPJ",
-          climate_regulation: "DSSAT"
+          climate_regulation: "WRF",
+          food_supply: "DSSAT"
         },
         {
           attribute: "物理指标",
@@ -119,10 +122,11 @@ export default {
           water_supply: "年均径流量",
           soil_conservation: "土壤侵蚀量",
           water_purification: "氮磷负荷量",
-          flood_regulation: "洪峰淹没面积，持续时间",
+          flood_regulation: "洪峰，淹没面积，持续时间",
           windbreak_sand: "沙尘通量",
           carbon_fixation: "植被固碳量",
-          climate_regulation: "干物质量"
+          climate_regulation: "空气质量",
+          food_supply: "干物质量"
         },
         {
           attribute: "参数率定方法",
@@ -133,18 +137,20 @@ export default {
           flood_regulation: "单/多目标贝叶斯优化",
           windbreak_sand: "单/多目标贝叶斯优化",
           carbon_fixation: "单/多目标贝叶斯优化",
-          climate_regulation: "单/多目标贝叶斯优化"
+          climate_regulation: "单/多目标贝叶斯优化",
+          food_supply: "单/多目标贝叶斯优化"
         },
         {
-          attribute: "并行计算方法",
+          attribute: "学生突出贡献",
           water_conservation: "Mesos",
           water_supply: "Mesos",
-          soil_conservation: "Mesos",
-          water_purification: "Mesos",
-          flood_regulation: "Mesos",
-          windbreak_sand: "Mesos",
-          carbon_fixation: "Mesos",
-          climate_regulation: "Mesos"
+          soil_conservation: "张京，李东升",
+          water_purification: "张京，李东升",
+          flood_regulation: "徐子萱，古慧敏，刘阳",
+          windbreak_sand: "徐慧",
+          carbon_fixation: "朱靓怡",
+          climate_regulation: "仇良成",
+          food_supply: "梁梅"
         }
       ]
     };
@@ -287,11 +293,11 @@ export default {
 }
 
 .section-title {
-  font-size: 20px;
+  font-size: 16px;
   font-weight: 600;
   color: #34495e;
   margin-bottom: 15px;
-  margin-top: 10px;
+  margin-top: 0px;
 }
 
 .model-container {

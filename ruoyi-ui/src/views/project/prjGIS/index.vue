@@ -2665,7 +2665,7 @@ export default {
         span {
           display: block;
           margin-bottom: 6px;
-          color: #34495e;
+          color: #409EFF;
           font-weight: bold;
         }
       }
@@ -2994,7 +2994,7 @@ export default {
 .time-control-slider {
   position: absolute;
   bottom: 25px;
-  left: 50%;
+  left: 40%;
   transform: translateX(-50%);
   width: 650px;
   z-index: 1000;

@@ -163,9 +163,16 @@
                       <el-radio label="year">年尺度</el-radio>
                 </el-radio-group>
                 </el-form-item>
-                <el-form-item>
-                  <el-button type="primary" @click="generateComparison">生成对比</el-button>
-                  <el-button type="success" @click="exportComparison">导出数据</el-button>
+                <el-form-item label="执行操作">
+                  <div class="button-group">
+                    <el-button type="primary" size="small" icon="el-icon-data-analysis" class="custom-button comparison-button" @click="generateComparison">生成对比</el-button>
+                  </div>
+                  <div class="button-group">
+                    <el-button type="primary" size="small" icon="el-icon-download" class="custom-button download-button" @click="exportComparison">下载数据</el-button>
+                  </div>
+                  <div class="button-group">
+                    <el-button type="primary" size="small" icon="el-icon-view" class="custom-button view-button" @click="downloadComparison">查看数据</el-button>
+                  </div>
                 </el-form-item>
               </el-form>
               
@@ -613,6 +620,9 @@ export default {
         this.togglePanel(0);
       }
     });
+
+    // 初始化图表可见性为false
+    this.initChartVisibility();
   },
   beforeDestroy() {
     // 清理所有图表实例
@@ -918,6 +928,11 @@ export default {
       if (prevIndex !== null && prevIndex !== index) {
         this.cleanupChartByIndex(prevIndex);
       }
+      
+      // 设置新的激活面板
+      this.activePanelIndex = index;
+      
+      // 不再自动渲染图表，让用户点击按钮时再渲染
     },
     
     // 测试方法：直接创建测试菜单项用于调试
@@ -984,13 +999,7 @@ export default {
       }
     },
     
-    renderChart(serviceType) {
-      // 确保serviceType是字符串
-      const typeId = String(serviceType);
-      
-      // 设置此图表为可见
-      this.$set(this.chartVisibility, typeId, true);
-      
+    renderChart(typeId) {
       // 根据类型ID构建图表容器ID
       const chartId = `simpleChart${typeId}`;
       
@@ -1009,189 +1018,205 @@ export default {
         showClose: true
       });
       
+      // 设置此图表为可见 - 提前设置为可见，确保容器正确显示
+      this.$set(this.chartVisibility, typeId, true);
+      
       // 使用短时间防抖
       clearTimeout(this._chartRenderTimer);
       this._chartRenderTimer = setTimeout(() => {
-        const chartDom = document.getElementById(chartId);
-        if (!chartDom) {
-          loadingMessage.close();
-          this.$message.error(`找不到图表容器: ${chartId}`);
-          return;
-        }
-        
-        try {
-          // 清除可能存在的旧图表实例
-          const existingChart = echarts.getInstanceByDom(chartDom);
-          if (existingChart) {
-            existingChart.dispose();
+        // 确保DOM已更新
+        this.$nextTick(() => {
+          const chartDom = document.getElementById(chartId);
+          if (!chartDom) {
+            loadingMessage.close();
+            this.$message.error(`找不到图表容器: ${chartId}`);
+            return;
           }
           
-          // 创建新的图表实例
-          const chart = echarts.init(chartDom, null, { renderer: 'canvas' });
-          
-          // 获取数据
-          const supplyData = this.getSupplyData(typeId);
-          const demandData = this.getDemandData(typeId);
-          const balanceData = supplyData.map((supply, index) => supply - demandData[index]);
-          const months = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
-          
-          // 图表配置
-          const option = {
-            animation: false,
-            title: {
-              text: `${chartName}供需关系`,
-              left: 'center',
-              textStyle: { fontSize: 16, fontWeight: 'bold' }
-            },
-            tooltip: {
-              trigger: 'axis',
-              confine: true, // 限制tooltip在容器内，避免渲染问题
-              formatter: function(params) {
-                let result = params[0].name + '<br/>';
-                params.forEach(param => {
-                  const color = param.seriesName === '差额' ? 
-                    (param.value >= 0 ? '#67C23A' : '#F56C6C') : 
-                    param.color;
-                  result += `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background-color:${color};margin-right:5px;"></span>`;
-                  result += `${param.seriesName}: ${param.value}<br/>`;
-                });
-                return result;
-              }
-            },
-            legend: {
-              data: ['供给', '需求', '差额'],
-              top: 30,
-              textStyle: { fontSize: 12 },
-            },
-            grid: {
-              left: '3%',
-              right: '4%',
-              bottom: '3%',
-              containLabel: true
-            },
-            xAxis: {
-              type: 'category',
-              data: months,
-              axisTick: { alignWithLabel: true }
-            },
-            yAxis: {
-              type: 'value',
-              axisLine: { show: true },
-              axisTick: { show: true },
-              splitLine: { show: true, lineStyle: { type: 'dashed' } }
-            },
-            series: [
-              {
-                name: '供给',
-                type: 'bar',
-                stack: 'total',
-                data: supplyData,
-                itemStyle: { color: '#409EFF' },
-                barMaxWidth: 35
-              },
-              {
-                name: '需求',
-                type: 'bar',
-                stack: 'total',
-                data: demandData.map(val => -val), // 需求为负值以在图表中向下显示
-                itemStyle: { color: '#F56C6C' },
-                barMaxWidth: 35
-              },
-              {
-                lineStyle: { width: 3 },
-                z: 2
-              },
-              {
-                name: '差额',
-                type: 'line',
-                data: balanceData,
-                smooth: true,
-                symbol: 'diamond',
-                symbolSize: 8,
-                lineStyle: { type: 'dashed', width: 2 },
-                itemStyle: {
-                  color: function(params) {
-                    return params.value >= 0 ? '#67C23A' : '#F56C6C';
-                  }
-                },
-                areaStyle: {
-                  opacity: 0.2,
-                  color: function(params) {
-                    return params.value >= 0 ? 'rgba(103,194,58,0.3)' : 'rgba(245,108,108,0.3)';
-                  }
-                },
-                z: 1
-              }
-            ]
-          };
-          
-          // 渲染成功标志
-          let renderSuccess = false;
-          
-          // 添加渲染完成事件，使用一次性事件监听
-          const handleRendered = () => {
-            if (renderSuccess) return; // 防止多次触发
-            renderSuccess = true;
-            
-            // 关闭加载中提示
-            loadingMessage.close();
-            
-            // 显示成功提示
-            this.$message({
-              message: `${chartName}图表绘制完成`,
-              type: 'success',
-              duration: 2000
-            });
-            
-            // 自行移除事件监听器（替代once功能）
-            if (typeof chart.off === 'function') {
-              chart.off('rendered', handleRendered);
-              chart.off('finished', handleRendered);
-            }
-          };
-          
-          // 设置图表选项
-          chart.setOption(option, true); // 使用notMerge=true提高性能
-          
-          // 尝试使用ECharts事件API
           try {
-            if (typeof chart.on === 'function') {
-              // 尝试所有可能的事件
-              chart.on('rendered', handleRendered);
-              chart.on('finished', handleRendered);
-              
-              // 如果chart支持getZr方法，使用其on方法（兼容更多版本）
-              if (typeof chart.getZr === 'function') {
-                const zr = chart.getZr();
-                if (zr && typeof zr.on === 'function') {
-                  zr.on('rendered', handleRendered);
+            // 清除可能存在的旧图表实例
+            const existingChart = echarts.getInstanceByDom(chartDom);
+            if (existingChart) {
+              existingChart.dispose();
+            }
+            
+            // 创建新的图表实例，确保图表尺寸正确
+            const chart = echarts.init(chartDom, null, { renderer: 'canvas' });
+            
+            // 获取数据
+            const supplyData = this.getSupplyData(typeId);
+            const demandData = this.getDemandData(typeId);
+            const balanceData = supplyData.map((supply, index) => supply - demandData[index]);
+            const months = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
+            
+            // 图表配置
+            const option = {
+              animation: false,
+              title: {
+                text: `${chartName}供需关系`,
+                left: 'center',
+                textStyle: { fontSize: 16, fontWeight: 'bold' }
+              },
+              tooltip: {
+                trigger: 'axis',
+                confine: true, // 限制tooltip在容器内，避免渲染问题
+                formatter: function(params) {
+                  let result = params[0].name + '<br/>';
+                  params.forEach(param => {
+                    const color = param.seriesName === '差额' ? 
+                      (param.value >= 0 ? '#67C23A' : '#F56C6C') : 
+                      param.color;
+                    result += `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background-color:${color};margin-right:5px;"></span>`;
+                    result += `${param.seriesName}: ${param.value}<br/>`;
+                  });
+                  return result;
                 }
+              },
+              legend: {
+                data: ['供给', '需求', '差额'],
+                top: 30,
+                textStyle: { fontSize: 12 },
+              },
+              grid: {
+                left: '3%',
+                right: '4%',
+                bottom: '3%',
+                containLabel: true
+              },
+              xAxis: {
+                type: 'category',
+                data: months,
+                axisTick: { alignWithLabel: true }
+              },
+              yAxis: {
+                type: 'value',
+                axisLine: { show: true },
+                axisTick: { show: true },
+                splitLine: { show: true, lineStyle: { type: 'dashed' } }
+              },
+              series: [
+                {
+                  name: '供给',
+                  type: 'bar',
+                  stack: 'total',
+                  data: supplyData,
+                  itemStyle: { color: '#409EFF' },
+                  barMaxWidth: 35
+                },
+                {
+                  name: '需求',
+                  type: 'bar',
+                  stack: 'total',
+                  data: demandData.map(val => -val), // 需求为负值以在图表中向下显示
+                  itemStyle: { color: '#F56C6C' },
+                  barMaxWidth: 35
+                },
+                {
+                  lineStyle: { width: 3 },
+                  z: 2
+                },
+                {
+                  name: '差额',
+                  type: 'line',
+                  data: balanceData,
+                  smooth: true,
+                  symbol: 'diamond',
+                  symbolSize: 8,
+                  lineStyle: { type: 'dashed', width: 2 },
+                  itemStyle: {
+                    color: function(params) {
+                      return params.value >= 0 ? '#67C23A' : '#F56C6C';
+                    }
+                  },
+                  areaStyle: {
+                    opacity: 0.2,
+                    color: function(params) {
+                      return params.value >= 0 ? 'rgba(103,194,58,0.3)' : 'rgba(245,108,108,0.3)';
+                    }
+                  },
+                  z: 1
+                }
+              ]
+            };
+            
+            // 渲染成功标志
+            let renderSuccess = false;
+            
+            // 添加渲染完成事件，使用一次性事件监听
+            const handleRendered = () => {
+              if (renderSuccess) return; // 防止多次触发
+              renderSuccess = true;
+              
+              // 关闭加载中提示
+              loadingMessage.close();
+              
+              // 显示成功提示
+              this.$message({
+                message: `${chartName}图表绘制完成`,
+                type: 'success',
+                duration: 2000
+              });
+              
+              // 自行移除事件监听器（替代once功能）
+              if (typeof chart.off === 'function') {
+                chart.off('rendered', handleRendered);
+                chart.off('finished', handleRendered);
               }
-            } else {
-              // 如果on方法不可用，直接调用回调函数
+            };
+            
+            // 设置图表选项
+            chart.setOption(option, true); // 使用notMerge=true提高性能
+            
+            // 确保图表正确调整大小
+            chart.resize();
+            
+            // 再次延迟调整图表大小，确保容器尺寸已完全更新
+            setTimeout(() => {
+              if (chart && !chart.isDisposed()) {
+                chart.resize();
+              }
+            }, 50);
+            
+            // 尝试使用ECharts事件API
+            try {
+              if (typeof chart.on === 'function') {
+                // 尝试所有可能的事件
+                chart.on('rendered', handleRendered);
+                chart.on('finished', handleRendered);
+                
+                // 如果chart支持getZr方法，使用其on方法（兼容更多版本）
+                if (typeof chart.getZr === 'function') {
+                  const zr = chart.getZr();
+                  if (zr && typeof zr.on === 'function') {
+                    zr.on('rendered', handleRendered);
+                  }
+                }
+              } else {
+                // 如果on方法不可用，直接调用回调函数
+                setTimeout(handleRendered, 100);
+              }
+            } catch (error) {
+              console.error('添加图表事件监听器失败:', error);
+              // 直接执行回调函数
               setTimeout(handleRendered, 100);
             }
+            
+            // 设置超时保障，确保最终会关闭loading
+            setTimeout(() => {
+              handleRendered();
+            }, 1000); // 减少超时时间，提高响应性
+            
           } catch (error) {
-            console.error('添加图表事件监听器失败:', error);
-            // 直接执行回调函数
-            setTimeout(handleRendered, 100);
+            // 处理错误
+            loadingMessage.close();
+            this.$message.error(`图表绘制失败: ${error.message}`);
+            console.error('图表绘制错误:', error);
+            
+            // 尝试备用的简单图表渲染
+            this.renderSimpleChartFallback(chartId, typeId, chartName);
           }
-          
-          // 设置超时保障，确保最终会关闭loading
-          setTimeout(() => {
-            handleRendered();
-          }, 1000); // 减少超时时间，提高响应性
-          
-        } catch (error) {
-          // 处理错误
-          loadingMessage.close();
-          this.$message.error(`图表绘制失败: ${error.message}`);
-          console.error('图表绘制错误:', error);
-          
-          // 尝试备用的简单图表渲染
-          this.renderSimpleChartFallback(chartId, typeId, chartName);
-        }
-      }, 50); // 短时间防抖
+        });
+      }, 0); // 立即执行，不需要防抖
     },
     
     // 备用的简单图表渲染方法
@@ -1313,21 +1338,14 @@ export default {
           this.map.updateSize();
         }
         
-        // 只重新调整可见图表的大小
-        const activeType = this.activePanelIndex !== null ? 
-          (this.menuItems[this.activePanelIndex] && this.menuItems[this.activePanelIndex].type) : null;
+        // 重新调整所有图表大小
+        this.resizeAllCharts();
         
-        if (activeType) {
-          const chartId = `simpleChart${activeType}`;
-          const chartDom = document.getElementById(chartId);
-          if (chartDom) {
-            const chart = echarts.getInstanceByDom(chartDom);
-            if (chart) {
-              chart.resize();
-            }
-          }
-        }
-      }, 200);
+        // 再次延迟调整，确保任何变化都已完成
+        setTimeout(() => {
+          this.resizeAllCharts();
+        }, 200);
+      }, 50); // 进一步减少延迟时间
     },
     
     closePanel() {
@@ -2300,145 +2318,157 @@ export default {
           return;
         }
         
-        // 清除已有图表
-        const existingChart = echarts.getInstanceByDom(chartDom);
-        if (existingChart) {
-          existingChart.dispose();
-        }
-        
-        // 初始化图表
-        const chart = echarts.init(chartDom);
-        
-        // 获取对应的案例项
-        const menuIndex = this.menuItems.findIndex(item => item.type === type);
-        if (menuIndex === -1) {
-          loading.close();
-          this.$message.error(`找不到对应的案例`);
-          return;
-        }
-        
-        const caseItem = this.menuItems[menuIndex];
-        const caseName = caseItem.fullName || `案例${type}`;
-        
-        // 获取供给和需求数据 - 模拟数据
-        const supplyData = Array(12).fill(0).map(() => Math.floor(Math.random() * 100) + 50);
-        const demandData = Array(12).fill(0).map(() => Math.floor(Math.random() * 80) + 20);
-        
-        // 计算差额数据
-        const balanceData = supplyData.map((supply, index) => supply - demandData[index]);
-        
-        // 月份数据
-        const months = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
-        
-        // 设置图表选项
-        const option = {
-          title: {
-            text: `${caseName}供需关系`,
-            left: 'center',
-            textStyle: { fontSize: 16, fontWeight: 'bold' }
-          },
-          tooltip: {
-            trigger: 'axis',
-            confine: true,
-            formatter: function(params) {
-              let result = params[0].name + '<br/>';
-              params.forEach(param => {
-                const color = param.seriesName === '差额' ? 
-                  (param.value >= 0 ? '#67C23A' : '#F56C6C') : 
-                  param.color;
-                result += `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background-color:${color};margin-right:5px;"></span>`;
-                result += `${param.seriesName}: ${param.value}<br/>`;
-              });
-              return result;
-            }
-          },
-          legend: {
-            data: ['供给', '需求', '差额'],
-            top: 30,
-            textStyle: { fontSize: 12 }
-          },
-          grid: {
-            left: '3%',
-            right: '4%',
-            bottom: '10%',
-            top: '20%',
-            containLabel: true
-          },
-          xAxis: {
-            type: 'category',
-            boundaryGap: false,
-            data: months,
-            axisLine: { lineStyle: { color: '#999' } },
-            axisLabel: { color: '#666' }
-          },
-          yAxis: {
-            type: 'value',
-            splitLine: { lineStyle: { type: 'dashed', color: '#DDD' } },
-            axisLabel: { color: '#666' }
-          },
-          series: [
-            {
-              name: '供给',
-              type: 'line',
-              data: supplyData,
-              smooth: true,
-              symbol: 'circle',
-              symbolSize: 8,
-              itemStyle: { color: '#409EFF' },
-              lineStyle: { width: 3 },
-              z: 3
-            },
-            {
-              name: '需求',
-              type: 'line',
-              data: demandData,
-              smooth: true,
-              symbol: 'triangle',
-              symbolSize: 8,
-              itemStyle: { color: '#F56C6C' },
-              lineStyle: { width: 3 },
-              z: 2
-            },
-            {
-              name: '差额',
-              type: 'line',
-              data: balanceData,
-              smooth: true,
-              symbol: 'diamond',
-              symbolSize: 8,
-              lineStyle: { type: 'dashed', width: 2 },
-              itemStyle: {
-                color: function(params) {
-                  return params.value >= 0 ? '#67C23A' : '#F56C6C';
-                }
-              },
-              areaStyle: {
-                opacity: 0.2,
-                color: function(params) {
-                  return params.value >= 0 ? 'rgba(103,194,58,0.3)' : 'rgba(245,108,108,0.3)';
-                }
-              },
-              z: 1
-            }
-          ]
-        };
-        
-        // 渲染图表
-        chart.setOption(option);
-        
-        // 关闭加载提示
-        loading.close();
-        
-        // 显示成功提示
-        this.$message({
-          message: `${caseName}图表绘制完成`,
-          type: 'success',
-          duration: 2000
-        });
-        
-        // 标记图表为可见
+        // 标记图表为可见 - 提前设置为可见，确保容器正确显示
         this.$set(this.chartVisibility, `case_${type}`, true);
         
+        // 延迟执行，确保DOM已经更新并且容器已显示
+        this.$nextTick(() => {
+          // 清除已有图表
+          const existingChart = echarts.getInstanceByDom(chartDom);
+          if (existingChart) {
+            existingChart.dispose();
+          }
+          
+          // 初始化图表
+          const chart = echarts.init(chartDom);
+          
+          // 获取对应的案例项
+          const menuIndex = this.menuItems.findIndex(item => item.type === type);
+          if (menuIndex === -1) {
+            loading.close();
+            this.$message.error(`找不到对应的案例`);
+            return;
+          }
+          
+          const caseItem = this.menuItems[menuIndex];
+          const caseName = caseItem.fullName || `案例${type}`;
+          
+          // 获取供给和需求数据 - 模拟数据
+          const supplyData = Array(12).fill(0).map(() => Math.floor(Math.random() * 100) + 50);
+          const demandData = Array(12).fill(0).map(() => Math.floor(Math.random() * 80) + 20);
+          
+          // 计算差额数据
+          const balanceData = supplyData.map((supply, index) => supply - demandData[index]);
+          
+          // 月份数据
+          const months = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
+          
+          // 设置图表选项
+          const option = {
+            title: {
+              text: `${caseName}供需关系`,
+              left: 'center',
+              textStyle: { fontSize: 16, fontWeight: 'bold' }
+            },
+            tooltip: {
+              trigger: 'axis',
+              confine: true,
+              formatter: function(params) {
+                let result = params[0].name + '<br/>';
+                params.forEach(param => {
+                  const color = param.seriesName === '差额' ? 
+                    (param.value >= 0 ? '#67C23A' : '#F56C6C') : 
+                    param.color;
+                  result += `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background-color:${color};margin-right:5px;"></span>`;
+                  result += `${param.seriesName}: ${param.value}<br/>`;
+                });
+                return result;
+              }
+            },
+            legend: {
+              data: ['供给', '需求', '差额'],
+              top: 30,
+              textStyle: { fontSize: 12 }
+            },
+            grid: {
+              left: '3%',
+              right: '4%',
+              bottom: '10%',
+              top: '20%',
+              containLabel: true
+            },
+            xAxis: {
+              type: 'category',
+              boundaryGap: false,
+              data: months,
+              axisLine: { lineStyle: { color: '#999' } },
+              axisLabel: { color: '#666' }
+            },
+            yAxis: {
+              type: 'value',
+              splitLine: { lineStyle: { type: 'dashed', color: '#DDD' } },
+              axisLabel: { color: '#666' }
+            },
+            series: [
+              {
+                name: '供给',
+                type: 'line',
+                data: supplyData,
+                smooth: true,
+                symbol: 'circle',
+                symbolSize: 8,
+                itemStyle: { color: '#409EFF' },
+                lineStyle: { width: 3 },
+                z: 3
+              },
+              {
+                name: '需求',
+                type: 'line',
+                data: demandData,
+                smooth: true,
+                symbol: 'triangle',
+                symbolSize: 8,
+                itemStyle: { color: '#F56C6C' },
+                lineStyle: { width: 3 },
+                z: 2
+              },
+              {
+                name: '差额',
+                type: 'line',
+                data: balanceData,
+                smooth: true,
+                symbol: 'diamond',
+                symbolSize: 8,
+                lineStyle: { type: 'dashed', width: 2 },
+                itemStyle: {
+                  color: function(params) {
+                    return params.value >= 0 ? '#67C23A' : '#F56C6C';
+                  }
+                },
+                areaStyle: {
+                  opacity: 0.2,
+                  color: function(params) {
+                    return params.value >= 0 ? 'rgba(103,194,58,0.3)' : 'rgba(245,108,108,0.3)';
+                  }
+                },
+                z: 1
+              }
+            ]
+          };
+          
+          // 渲染图表
+          chart.setOption(option);
+          
+          // 确保图表正确调整大小
+          chart.resize();
+          
+          // 再次延迟调整图表大小，确保容器尺寸已完全更新
+          setTimeout(() => {
+            if (chart && !chart.isDisposed()) {
+              chart.resize();
+            }
+          }, 50);
+          
+          // 关闭加载提示
+          loading.close();
+          
+          // 显示成功提示
+          this.$message({
+            message: `${caseName}图表绘制完成`,
+            type: 'success',
+            duration: 2000
+          });
+        });
       } catch (error) {
         loading.close();
         this.$message.error(`图表绘制失败: ${error.message}`);
@@ -2604,6 +2634,29 @@ export default {
         this.$message.error('获取默认服务案例记录失败');
         return Promise.resolve();
       });
+    },
+    
+    // 添加直接调整图表大小的全局方法
+    resizeAllCharts() {
+      // 延迟执行以确保DOM已更新
+      this.$nextTick(() => {
+        // 查找所有图表实例并调整大小
+        document.querySelectorAll('[id^="simpleChart"], [id^="caseChart"], #comparisonChart').forEach(dom => {
+          const chart = echarts.getInstanceByDom(dom);
+          if (chart && !chart.isDisposed()) {
+            chart.resize();
+          }
+        });
+      });
+    },
+
+    // 添加初始化图表可见性的方法
+    initChartVisibility() {
+      // 确保所有图表初始状态为不可见
+      for (let i = 0; i < 8; i++) {
+        this.$set(this.chartVisibility, i, false);
+        this.$set(this.chartVisibility, `case_${i}`, false);
+      }
     },
   },
   watch: {
@@ -2868,7 +2921,7 @@ export default {
         span {
           display: block;
           margin-bottom: 6px;
-          color: #34495e;
+          color: #409EFF;
           font-weight: bold;
         }
       }
@@ -3016,10 +3069,13 @@ export default {
   border-radius: 4px; // 添加圆角使其更美观
   width: 100%; // 确保宽度为100%
   box-sizing: border-box; // 确保padding不会导致宽度溢出
+  position: relative; // 确保定位正确
   
   & > div {
     width: 100% !important; // 确保图表div宽度为100%
     height: 300px !important; // 固定高度
+    min-width: 100% !important; // 添加最小宽度
+    visibility: visible !important; // 确保可见
   }
 }
 
@@ -3197,7 +3253,7 @@ export default {
 .time-control-slider {
   position: absolute;
   bottom: 25px;
-  left: 50%;
+  left: 40%;
   transform: translateX(-50%);
   width: 650px;
   z-index: 1000;
@@ -3308,6 +3364,88 @@ export default {
       }
     }
   }
+}
+
+.button-group {
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-start;
+  align-items: center;
+  margin-bottom: 10px;
+  width: 100%;
+}
+
+.custom-button {
+  padding: 10px 15px;
+  border-radius: 10px;
+  font-weight: 600;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+  border: none;
+  letter-spacing: 0.5px;
+  width: 100%;
+  max-width: 180px;
+}
+
+.custom-button i {
+  margin-right: 8px;
+  font-size: 16px;
+}
+
+.custom-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.25);
+  opacity: 0.95;
+}
+
+.custom-button:active {
+  transform: translateY(1px);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.comparison-button {
+  background: linear-gradient(135deg, #409EFF, #0d86ff);
+  border: none;
+  color: white;
+}
+
+.comparison-button:hover {
+  background: linear-gradient(135deg, #66b1ff, #409EFF);
+}
+
+.download-button {
+  background: linear-gradient(135deg, #67C23A, #4e9e25);
+  border: none;
+  color: white;
+}
+
+.download-button:hover {
+  background: linear-gradient(135deg, #85ce61, #67C23A);
+}
+
+.view-button {
+  background: linear-gradient(135deg, #E6A23C, #d28b21);
+  border: none;
+  color: white;
+}
+
+.view-button:hover {
+  background: linear-gradient(135deg, #ebb563, #E6A23C);
+}
+
+.comparison-button:hover {
+  background-color: #3a8ee6;
+}
+
+.download-button:hover {
+  background-color: #5daf34;
+}
+
+.view-button:hover {
+  background-color: #e7a23c;
 }
 </style>
 
