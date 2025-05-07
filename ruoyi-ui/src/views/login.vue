@@ -120,7 +120,7 @@ export default {
         {
           image: require("@/assets/images/Sequoia1.jpg"),
           title: "生态产品价值核算平台",
-          description: "可持续发展的新时代"
+          description: "可持续发展的决策工具"
         },
         {
           image: require("@/assets/images/Sequoia2.jpg"),
