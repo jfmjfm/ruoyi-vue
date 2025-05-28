@@ -113,6 +113,13 @@ export const constantRoutes = [
         meta: { title: '价值核算', icon: 'el-icon-map-location' }
       },
       {
+        path: 'project_region',
+        component: () => import('@/views/project/project_region/index'),
+        name: 'ProjectRegion',
+        hidden: true,
+        meta: { title: '现状评估', icon: 'el-icon-map-location' }
+      },
+      {
         path: 'project_modelcalibration',
         component: () => import('@/views/project/project_service_case/calibration'),
         name: '参数率定',
@@ -120,11 +127,32 @@ export const constantRoutes = [
         meta: { title: '模型参数率定', icon: 'el-icon-document' }
       },
       {
+        path: 'project_calibrationdetail',
+        component: () => import('@/views/project/project_service_case/calibrationdetail'),
+        name: '参数率定详情',
+        hidden: true,
+        meta: { title: '模型参数率定详情', icon: 'el-icon-document' }
+      },
+      {
         path: 'project_scenario',
         component: () => import('@/views/project/project_service_case/scenario'),
         name: '对比情景',
         hidden: true,
         meta: { title: '对比情景', icon: 'el-icon-document' }
+      },
+      {
+        path: 'project_solodecision',
+        component: () => import('@/views/project/project_service_case/solo'),
+        name: '标量优化详细',
+        hidden: true,
+        meta: { title: '标量优化详细', icon: 'el-icon-document' }
+      },
+      {
+        path: 'project_multidecision',
+        component: () => import('@/views/project/project_service_case/multi'),
+        name: '服务权衡详细',
+        hidden: true,
+        meta: { title: '服务权衡详细', icon: 'el-icon-document' }
       }
     ]
   }

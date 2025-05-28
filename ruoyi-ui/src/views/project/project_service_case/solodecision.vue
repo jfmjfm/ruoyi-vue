@@ -51,16 +51,16 @@
             size="mini"
             type="text"
             icon="el-icon-edit"
-            @click="handleCreate(scope.row)"
+            @click="handleCreateOptimization(scope.row)"
             v-hasPermi="['project:project_service_case:edit']"
-          >创建情景</el-button>
-        <el-button
-          size="mini"
-          type="text"
-          icon="el-icon-view"
-          @click="handleScenarioAnalysis(scope.row)"
-          v-hasPermi="['project:project_service_case:analysis']"
-        >对比情景</el-button>
+          >创建优化</el-button>
+          <el-button
+            size="mini"
+            type="text"
+            icon="el-icon-view"
+            @click="handleScenarioAnalysis(scope.row)"
+            v-hasPermi="['project:project_service_case:analysis']"
+          >对比情景</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -81,15 +81,15 @@
           <div v-if="caseNameExists" style="color: red; font-size: 12px; margin-top: 5px;">{{ caseNameError }}</div>
         </el-form-item>
         <el-form-item label="服务路径" prop="caseDir">
-          <el-input v-model="form.caseDir" placeholder="服务路径" :readonly="title === '创建情景'" />
+          <el-input v-model="form.caseDir" placeholder="服务路径" :readonly="title === '创建情景' || title === '创建优化'" />
         </el-form-item>
         <el-form-item label="是否默认" prop="isDefault">
-          <el-input v-model="form.isDefault" placeholder="是否默认案例" :readonly="title === '创建情景'" />
+          <el-input v-model="form.isDefault" placeholder="是否默认案例" :readonly="title === '创建情景' || title === '创建优化'" />
         </el-form-item>
         <el-form-item label="模型参数" prop="validparam">
-          <el-input v-model="form.validparam" placeholder="请输入模型参数" :readonly="title === '创建情景'" />
+          <el-input v-model="form.validparam" placeholder="请输入模型参数" :readonly="title === '创建情景' || title === '创建优化'" />
         </el-form-item>
-        <el-form-item label="人类活动" prop="humanActivity">
+        <el-form-item v-if="title === '创建情景'" label="人类活动" prop="humanActivity">
           <el-select v-model="form.humanActivity" @change="val => handleChange(val, 'humanActivity')">      
             <el-option label="默认" value="默认"></el-option>
             <el-option label="城市化" value="城市化"></el-option>
@@ -97,7 +97,7 @@
             <el-option label="林业活动" value="林业活动"></el-option>
           </el-select>
         </el-form-item>
-        <el-form-item label="气候变化" prop="climateChange">
+        <el-form-item v-if="title === '创建情景'" label="气候变化" prop="climateChange">
           <el-select v-model="form.climateChange" @change="val => handleChange(val, 'climateChange')">
             <el-option label="默认" value="默认"></el-option>
             <el-option label="全球变暖" value="全球变暖"></el-option>
@@ -105,8 +105,15 @@
             <el-option label="气候极端事件增加" value="气候极端事件增加"></el-option>
           </el-select>
         </el-form-item>
+        <el-form-item v-if="title === '创建优化'" label="优化方向" prop="optimizationDirection">
+          <el-select v-model="form.optimizationDirection" @change="handleOptimizationChange">
+            <el-option label="植被覆盖调整" value="植被覆盖调整"></el-option>
+            <el-option label="农业用地规划" value="农业用地规划"></el-option>
+            <el-option label="水库闸坝调控" value="水库闸坝调控"></el-option>
+          </el-select>
+        </el-form-item>
         <el-form-item label="当前状态" prop="description">
-          <el-input v-model="form.description" type="textarea" placeholder="请输入内容" :readonly="title === '创建情景'" />
+          <el-input v-model="form.description" type="textarea" placeholder="请输入内容" :readonly="title === '创建情景' || title === '创建优化'" />
         </el-form-item>
       </el-form>
       <div slot="footer" class="dialog-footer">
@@ -151,10 +158,25 @@ export default {
         caseDir: null,
         isDefault: null,
         validparam: null,
-        description: null,
+        description: "参数率定",
       },
       // 表单参数
-      form: {},
+      form: {
+        id: null,
+        regionServiceId: null,
+        caseName: null,
+        caseDir: null,
+        isDefault: null,
+        validparam: null,
+        description: null,
+        createTime: null,
+        updateTime: null,
+        createBy: null,
+        updateBy: null,
+        humanActivity: "默认",
+        climateChange: "默认",
+        optimizationDirection: "植被覆盖调整"
+      },
       // 表单校验
       rules: {
         regionServiceId: [
@@ -214,7 +236,8 @@ export default {
         createBy: null,
         updateBy: null,
         humanActivity: "默认",
-        climateChange: "默认"
+        climateChange: "默认",
+        optimizationDirection: "植被覆盖调整"
       };
       this.resetForm("form");
     },
@@ -239,6 +262,37 @@ export default {
       this.reset();
       this.open = true;
       this.title = "添加服务案例";
+    },
+    /** 创建优化按钮操作 */
+    handleCreateOptimization(row) {
+      this.reset();
+      this.baseCase = row;
+      
+      // 从案例名称中提取baseline之前的部分
+      let baseNamePart = "";
+      if (row.caseName && row.caseName.includes("baseline")) {
+        baseNamePart = row.caseName.substring(0, row.caseName.indexOf("baseline"));
+      } else {
+        baseNamePart = row.caseName + "-";
+      }
+      
+      // 设置默认的优化情景选择项和优化方向
+      const optimizationScenario = "优化方向";
+      const optimizationDirection = "植被覆盖调整";
+      
+      this.form = {
+        regionServiceId: row.regionServiceId,
+        caseName: baseNamePart + optimizationScenario + "-" + optimizationDirection,
+        caseDir: row.caseDir,
+        isDefault: 0,
+        validparam: row.validparam,
+        description: '标量优化',
+        optimizationDirection: optimizationDirection
+      };
+      
+      this.checkCaseNameExists();
+      this.open = true;
+      this.title = "创建优化";
     },
     /** 创建情景按钮操作 */
     handleCreate(row) {
@@ -276,8 +330,8 @@ export default {
     },
     /** 提交按钮 */
     submitForm() {
-      if (this.title !== '创建情景') {
-        this.form.description = '参数率定';
+      if (this.title !== '创建优化') {
+        this.form.description = '标量优化';
       }
       
       // 先检查名称是否重复
@@ -331,7 +385,7 @@ export default {
     /** 对比情景分析 */
     handleScenarioAnalysis(row) {
       this.$router.push({
-        path: '/project/project_scenario',
+        path: '/project/project_solodecision',
         query: {
           region_service_id: row.regionServiceId
         }
@@ -391,7 +445,23 @@ export default {
           callback(new Error('查询案例名称时出错'));
         });
       }
-    }
+    },
+    // 处理优化方向变化
+    handleOptimizationChange(val) {
+      if (this.baseCase && this.title === "创建优化") {
+        // 从案例名称中提取baseline之前的部分
+        let baseNamePart = "";
+        if (this.baseCase.caseName && this.baseCase.caseName.includes("baseline")) {
+          baseNamePart = this.baseCase.caseName.substring(0, this.baseCase.caseName.indexOf("baseline"));
+        } else {
+          baseNamePart = this.baseCase.caseName + "-";
+        }
+        
+        // 更新案例名称
+        this.form.caseName = baseNamePart + "优化方向-" + val;
+        this.checkCaseNameExists();
+      }
+    },
   }
 };
 </script>

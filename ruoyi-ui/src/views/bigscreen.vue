@@ -4,6 +4,12 @@
       <div class="tv-screen">
         <div class="tv-content">
           <div id="map" class="map-container"></div>
+          <!-- 选择项显示区域 -->
+          <div class="selection-display">
+            <div class="selection-content">
+              {{ currentSelectionText }}
+            </div>
+          </div>
         </div>
       </div>
       <div class="tv-controls">
@@ -47,16 +53,48 @@
         </div>
         <div class="buttons-panel">
           <div class="button-grid">
-            <div class="button darker" @click="toggleMapType"><div class="button-line"></div></div>
-            <div class="button dark" @click="zoomIn"><div class="button-line"></div></div>
-            <div class="button light" @click="zoomOut"><div class="button-line"></div></div>
-            <div class="button dark" @click="resetMapView"><div class="button-line"></div></div>
-            <div class="button dark"><div class="button-line"></div></div>
-            <div class="button light"><div class="button-line"></div></div>
-            <div class="button light"><div class="button-line"></div></div>
-            <div class="button darker"><div class="button-line"></div></div>
-            <div class="button light"><div class="button-line"></div></div>
-            <div class="button darker"><div class="button-line"></div></div>
+            <div class="button light" @click="toggleMapType">
+              <span class="button-title">水源涵养</span>
+            </div>
+            <div class="button light" @click="zoomIn">
+              <span class="button-title">土壤保持</span>
+            </div>
+            <div class="button dark" @click="zoomOut">
+              <span class="button-title">水源供给</span>  
+            </div>
+            <div class="button dark" @click="resetMapView">
+              <span class="button-title">防风固沙</span>
+            </div>
+            <div class="button light">
+              <span class="button-title">固碳服务</span>
+            </div>
+            <div class="button light">
+              <span class="button-title">洪水调蓄</span>
+            </div>
+            <div class="button dark">
+              <span class="button-title">食物供给</span>
+            </div>
+            <div class="button dark">
+              <span class="button-title">水质净化</span>
+            </div>
+            <div class="button light">
+              <span class="button-title">气候调节</span>
+            </div>
+            <div class="button light">
+              <span class="button-title">生物多样性</span>
+            </div>
+          </div>
+        </div>
+        <!-- 自动演示控制按钮 -->
+        <div class="auto-play-control">
+          <div class="toggle-switch" @click="toggleAutoPlay">
+            <div class="toggle-slider" :class="{ active: autoPlayEnabled }"></div>
+            <span class="toggle-label">{{ autoPlayEnabled ? '自动演示' : '手动操作' }}</span>
+          </div>
+          <!-- 返回首页按钮 -->
+          <div class="home-button" @click="goBack">
+            <div class="toggle-slider"></div>
+            <span>返回首页</span>
           </div>
         </div>
       </div>
@@ -79,16 +117,38 @@ export default {
       isFullscreen: false,
       map: null,
       currentMapType: 'image', // 'image' for satellite imagery, 'vector' for vector map
-      knobRotations: [0, 45, 90, 135] // 初始旋钮旋转角度
+      knobRotations: [0, 45, 90, 135], // 初始旋钮旋转角度
+      autoPlayEnabled: true, // 控制是否启用自动演示
+      autoPlayInterval: null, // 存储自动演示的定时器
+      autoPlayStep: 0, // 当前自动演示的步骤
+      activeKnobIndex: -1, // 当前激活的旋钮索引
+      activeButtonIndex: -1, // 当前激活的按钮索引
+      knobLabels: ['现状评估', '历史演变', '未来趋势', '决策优化'], // 旋钮标签
+      buttonLabels: ['水源涵养', '土壤保持', '水源供给', '防风固沙', '固碳服务', '洪水调蓄', '食物供给', '水质净化', '气候调节', '生物多样性'] // 按钮标签
+    }
+  },
+  computed: {
+    currentSelectionText() {
+      const knobText = this.activeKnobIndex >= 0 ? this.knobLabels[this.activeKnobIndex] : '未选择';
+      const buttonText = this.activeButtonIndex >= 0 ? this.buttonLabels[this.activeButtonIndex] : '未选择';
+      return `${knobText} - ${buttonText}`;
     }
   },
   mounted() {
     this.addFullscreenEventListeners();
     this.enterFullscreen();
     this.initMap();
+    
+    // 启动自动演示
+    if (this.autoPlayEnabled) {
+      this.startAutoPlay();
+    }
   },
   beforeDestroy() {
     this.removeFullscreenEventListeners();
+    
+    // 销毁自动演示定时器
+    this.stopAutoPlay();
     
     // 销毁地图实例
     if (this.map) {
@@ -112,6 +172,9 @@ export default {
       
       // 设置CSS变量以在hover和active状态中保持旋转
       document.documentElement.style.setProperty(`--rotation-${index}`, `${this.knobRotations[index]}deg`);
+      
+      // 更新活跃旋钮索引
+      this.setActiveKnob(index);
       
       // 添加旋转动画效果
       const knob = document.querySelectorAll('.knob')[index];
@@ -204,6 +267,8 @@ export default {
     
     // 切换底图类型
     toggleMapType() {
+      this.activeButtonIndex = 0; // 水源涵养按钮索引
+      
       if (this.currentMapType === 'image') {
         // 切换到矢量图
         this.currentMapType = 'vector';
@@ -274,6 +339,8 @@ export default {
       }
     },
     zoomIn() {
+      this.activeButtonIndex = 1; // 土壤保持按钮索引
+      
       if (this.map) {
         const view = this.map.getView();
         const zoom = view.getZoom();
@@ -284,6 +351,8 @@ export default {
       }
     },
     zoomOut() {
+      this.activeButtonIndex = 2; // 水源供给按钮索引
+      
       if (this.map) {
         const view = this.map.getView();
         const zoom = view.getZoom();
@@ -294,6 +363,8 @@ export default {
       }
     },
     resetMapView() {
+      this.activeButtonIndex = 3; // 防风固沙按钮索引
+      
       if (this.map) {
         const view = this.map.getView();
         view.animate({
@@ -305,6 +376,176 @@ export default {
         // 重置旋钮角度
         this.knobRotations = [0, 45, 90, 135];
       }
+    },
+    // 启动自动演示
+    startAutoPlay() {
+      // 清除可能存在的定时器
+      this.stopAutoPlay();
+      
+      // 设置自动演示间隔，每2秒执行一次
+      this.autoPlayInterval = setInterval(() => {
+        this.performAutoPlayStep();
+      }, 4000);
+      
+      // 立即执行第一步
+      this.performAutoPlayStep();
+    },
+    
+    // 停止自动演示
+    stopAutoPlay() {
+      if (this.autoPlayInterval) {
+        clearInterval(this.autoPlayInterval);
+        this.autoPlayInterval = null;
+      }
+    },
+    
+    // 设置活跃旋钮
+    setActiveKnob(index) {
+      // 如果之前有活跃旋钮，先移除它的活跃状态
+      if (this.activeKnobIndex !== -1 && this.activeKnobIndex !== index) {
+        const prevKnob = document.querySelectorAll('.knob')[this.activeKnobIndex];
+        if (prevKnob) {
+          prevKnob.classList.remove('knob-spinning');
+          
+          // 恢复之前的旋转角度
+          const prevRotation = this.knobRotations[this.activeKnobIndex];
+          prevKnob.style.transform = `rotate(${prevRotation}deg)`;
+        }
+      }
+      
+      // 设置新的活跃旋钮
+      this.activeKnobIndex = index;
+      const currentKnob = document.querySelectorAll('.knob')[index];
+      if (currentKnob) {
+        currentKnob.style.transform = 'rotate(0deg)'; // 重置旋转以便动画从0开始
+        currentKnob.classList.add('knob-spinning');
+      }
+    },
+    
+    // 执行自动演示的当前步骤
+    performAutoPlayStep() {
+      // 总共有6个步骤：4个旋钮 + 2个按钮
+      const totalSteps = 6;
+      
+      // 根据当前步骤执行相应操作
+      if (this.autoPlayStep < 4) {
+        // 旋转旋钮
+        const knobIndex = this.autoPlayStep;
+        
+        // 获取旋钮元素
+        const knobs = document.querySelectorAll('.knob');
+        if (knobs && knobs[knobIndex]) {
+          const knob = knobs[knobIndex];
+          
+          // 模拟点击动画效果
+          knob.classList.add('knob-active');
+          setTimeout(() => {
+            knob.classList.remove('knob-active');
+          }, 300);
+          
+          // 添加点击波纹效果
+          this.addClickRipple(knob);
+          
+          // 执行旋转功能并设置为活跃旋钮
+          this.rotateKnob(knobIndex);
+        }
+      } else if (this.autoPlayStep === 4) {
+        // 如果有活跃旋钮，在点击按钮时保持其活跃状态
+        
+        // 点击第一个按钮
+        const buttons = document.querySelectorAll('.button-grid > .button');
+        if (buttons && buttons[0]) {
+          // 模拟点击动画效果
+          this.simulateButtonClick(buttons[0]);
+          // 执行功能
+          this.toggleMapType();
+        }
+      } else if (this.autoPlayStep === 5) {
+        // 点击第二个按钮
+        const buttons = document.querySelectorAll('.button-grid > .button');
+        if (buttons && buttons[1]) {
+          // 模拟点击动画效果
+          this.simulateButtonClick(buttons[1]);
+          // 执行功能
+          this.zoomIn();
+        }
+      }
+      
+      // 移动到下一步骤
+      this.autoPlayStep = (this.autoPlayStep + 1) % totalSteps;
+    },
+    
+    // 模拟按钮点击动画效果
+    simulateButtonClick(button) {
+      // 查找按钮索引
+      const buttons = document.querySelectorAll('.button-grid > .button');
+      const index = Array.from(buttons).indexOf(button);
+      if (index >= 0) {
+        this.activeButtonIndex = index;
+      }
+      
+      // 添加瞬时高亮效果
+      button.classList.add('button-flash');
+      setTimeout(() => {
+        button.classList.remove('button-flash');
+      }, 300);
+      
+      // 添加波纹效果
+      this.addClickRipple(button);
+    },
+    
+    // 添加点击波纹效果
+    addClickRipple(element) {
+      // 创建波纹元素
+      const ripple = document.createElement('div');
+      ripple.className = 'click-ripple';
+      
+      // 使用绝对定位确保不影响父元素尺寸
+      ripple.style.position = 'absolute';
+      
+      // 计算元素中心坐标
+      const rect = element.getBoundingClientRect();
+      const size = Math.max(rect.width, rect.height) * 1.5;
+      
+      // 设置波纹样式
+      ripple.style.width = size + 'px';
+      ripple.style.height = size + 'px';
+      ripple.style.left = '50%';
+      ripple.style.top = '50%';
+      ripple.style.marginLeft = -(size/2) + 'px';
+      ripple.style.marginTop = -(size/2) + 'px';
+      
+      // 使用绝对定位不会影响元素布局
+      element.style.position = element.style.position || 'relative';
+      element.style.overflow = 'hidden';
+      
+      // 添加波纹到元素中
+      element.appendChild(ripple);
+      
+      // 波纹结束后移除
+      setTimeout(() => {
+        if (element.contains(ripple)) {
+          element.removeChild(ripple);
+        }
+      }, 800);
+    },
+    // 切换自动演示
+    toggleAutoPlay() {
+      this.autoPlayEnabled = !this.autoPlayEnabled;
+      
+      if (this.autoPlayEnabled) {
+        this.startAutoPlay();
+      } else {
+        this.stopAutoPlay();
+      }
+    },
+    // 返回首页
+    goBack() {
+      // 退出全屏
+      this.exitFullscreen();
+      window.close();
+      // 关闭大屏页面，返回首页
+      //this.$router.push('/');
     }
   }
 }
@@ -464,16 +705,52 @@ export default {
   transform-origin: center center;
   transform-style: preserve-3d;
   animation: none;
+  will-change: transform;
 }
 
-.knob:hover {
+.knob .knob-indicator {
+  transform: rotate(0deg) !important;
+}
+
+/* 旋钮悬浮时效果 */
+.knob:hover:not(.knob-spinning) {
   box-shadow: 0 6px 10px rgba(0, 0, 0, 0.4);
   animation: knob-hover-rotate 2s ease-in-out infinite;
 }
 
-.knob:active {
+/* 旋钮点击时效果 */
+.knob:active:not(.knob-spinning) {
   box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3);
   animation: knob-click-rotate 0.5s ease-out;
+}
+
+/* 旋钮持续旋转动画 */
+.knob-spinning {
+  animation: knob-spinning 8s linear infinite !important;
+  box-shadow: 0 0 15px rgba(255, 87, 34, 0.6), 0 4px 8px rgba(0, 0, 0, 0.4);
+}
+
+/* 持续旋转时旋钮的指示器需要反向旋转以保持可读性 */
+.knob-spinning .knob-indicator {
+  animation: counter-spin 8s linear infinite !important;
+}
+
+@keyframes counter-spin {
+  from {
+    transform: rotate(0deg) !important;
+  }
+  to {
+    transform: rotate(-360deg) !important;
+  }
+}
+
+@keyframes knob-spinning {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @keyframes knob-hover-rotate {
@@ -501,11 +778,6 @@ export default {
   100% {
     transform: rotate(var(--rotation, 0deg));
   }
-}
-
-/* Remove the transform from the hover effect as it was interfering with the rotation */
-.knob:active, .knob:hover {
-  /* transform: rotate(var(--rotation, 0deg)); */
 }
 
 /* Remove the before and after pseudo-elements since we're now using an image */
@@ -593,6 +865,20 @@ export default {
   min-height: 240px;
 }
 
+.button-title {
+  font-size: 13px;
+  color: #f8f8f8;
+  font-weight: 600;
+  text-align: center;
+  position: absolute;
+  top: 30%;
+  left: 0;
+  right: 0;
+  margin: auto;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+  letter-spacing: 1px;
+}
+
 .button {
   width: 100%;
   height: 100%;
@@ -610,9 +896,16 @@ export default {
 }
 
 .button:hover {
-  filter: brightness(1.1);
+  filter: brightness(1.2);
   transform: translateY(-1px);
   cursor: pointer;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.5);
+}
+
+.button:active {
+  filter: brightness(0.9);
+  transform: translateY(1px);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
 }
 
 .dark {
@@ -629,12 +922,26 @@ export default {
 
 .button-line {
   position: absolute;
-  top: 50%;
+  top: 65%;
   left: 50%;
   width: 50%;
   height: 3px;
-  background-color: #777;
+  background-color: #999;
   transform: translate(-50%, -50%);
+  opacity: 0.8;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+/* 按钮悬停时标题效果 */
+.button:hover .button-title {
+  transform: translateY(-1px);
+  color: #fff;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+}
+
+.button:hover .button-line {
+  background-color: #ccc;
+  opacity: 1;
 }
 
 /* Fullscreen styles */
@@ -691,6 +998,15 @@ export default {
     white-space: normal;
     text-align: center;
   }
+  
+  .button-title {
+    font-size: 10px;
+  }
+  
+  .button-cell .button, 
+  .button-wrapper .button {
+    height: 28px;
+  }
 }
 
 @media screen and (max-height: 600px) {
@@ -705,5 +1021,219 @@ export default {
   margin: 0;
   padding: 0;
   overflow: hidden;
+}
+
+.click-ripple {
+  position: absolute;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.7) 0%, rgba(255, 255, 255, 0.3) 40%, rgba(255, 255, 255, 0) 70%);
+  border-radius: 50%;
+  transform: scale(0);
+  animation: ripple-effect 0.8s ease-out;
+  pointer-events: none;
+  z-index: 10;
+}
+
+@keyframes ripple-effect {
+  0% {
+    transform: scale(0);
+    opacity: 1;
+  }
+  60% {
+    transform: scale(0.8);
+    opacity: 0.5;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0;
+  }
+}
+
+/* 自动演示控制样式 */
+.auto-play-control {
+  margin-top: 15px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.toggle-switch {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  padding: 5px 10px;
+  background: #444;
+  border-radius: 20px;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.4);
+  transition: all 0.3s ease;
+}
+
+.toggle-switch:hover {
+  background: #4a4a4a;
+}
+
+.toggle-slider {
+  width: 20px;
+  height: 20px;
+  background: #555;
+  border-radius: 50%;
+  margin-right: 10px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  transition: all 0.3s ease;
+}
+
+.toggle-slider.active {
+  background: #4CAF50;
+  box-shadow: 0 0 8px rgba(76, 175, 80, 0.6);
+}
+
+.toggle-label {
+  font-size: 12px;
+  color: #f0f0f0;
+  transition: all 0.3s ease;
+}
+
+/* 响应式调整 */
+@media screen and (max-width: 768px) {
+  .toggle-label {
+    font-size: 10px;
+  }
+  
+  .toggle-slider {
+    width: 16px;
+    height: 16px;
+  }
+}
+
+/* 旋钮激活动画 */
+.knob-active {
+  animation: knob-click-rotate 0.5s ease-out !important;
+}
+
+/* 旋钮持续旋转动画 */
+.knob-spinning {
+  animation: knob-spinning 5s linear infinite !important;
+}
+
+@keyframes knob-spinning {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 按钮点击时的闪光效果 */
+.button-flash {
+  animation: button-flash 0.3s ease-out;
+}
+
+@keyframes button-flash {
+  0% {
+    filter: brightness(1);
+  }
+  50% {
+    filter: brightness(1.5);
+  }
+  100% {
+    filter: brightness(1);
+  }
+}
+
+.click-ripple {
+  position: absolute;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.7) 0%, rgba(255, 255, 255, 0.3) 40%, rgba(255, 255, 255, 0) 70%);
+  border-radius: 50%;
+  transform: scale(0);
+  animation: ripple-effect 0.8s ease-out;
+  pointer-events: none;
+  z-index: 10;
+  width: 100%;
+  height: 100%;
+  left: 0;
+  top: 0;
+  margin: 0;
+  padding: 0;
+}
+
+@keyframes ripple-effect {
+  0% {
+    transform: scale(0);
+    opacity: 1;
+  }
+  60% {
+    transform: scale(0.8);
+    opacity: 0.5;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0;
+  }
+}
+
+/* 返回首页按钮样式 */
+.home-button {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  padding: 5px 10px;
+  background: #444;
+  border-radius: 20px;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.4);
+  transition: all 0.3s ease;
+}
+
+.home-button:hover {
+  background: #4a4a4a;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.4);
+}
+
+.home-button .toggle-slider {
+  width: 20px;
+  height: 20px;
+  background: #4CAF50;
+  border-radius: 50%;
+  margin-right: 10px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  transition: all 0.3s ease;
+}
+
+.home-button:active {
+  transform: translateY(1px);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.home-button span {
+  font-size: 12px;
+  color: #ffffff;
+  font-weight: 500;
+}
+
+/* 在地图上显示选择内容的样式 */
+.selection-display {
+  position: absolute;
+  bottom: 25px;
+  left: 45%;
+  transform: translate(-50%, -50%);
+  z-index: 10;
+  background-color: rgba(0, 0, 0, 0.7);
+  padding: 10px 20px;
+  border-radius: 20px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(5px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  pointer-events: none; /* 允许点击穿透 */
+  transition: all 0.3s ease;
+}
+
+.selection-content {
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 600;
+  text-align: center;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+  letter-spacing: 1px;
+  white-space: nowrap;
 }
 </style>

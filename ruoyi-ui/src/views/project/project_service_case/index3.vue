@@ -151,7 +151,7 @@ export default {
         caseDir: null,
         isDefault: 1,
         validparam: null,
-        description: null,
+        description: '参数率定',
       },
       // 表单参数
       form: {},

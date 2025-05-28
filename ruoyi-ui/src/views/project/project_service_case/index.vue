@@ -174,7 +174,7 @@ export default {
         const filteredData = response.rows.filter(item => {
           if (!item.description) return false;
           const desc = item.description.toString().trim();
-          return desc.includes('默认情景');
+          return desc.includes('创建项目');
         });
         
         // 计算总数据量
@@ -297,7 +297,7 @@ export default {
       // 清除错误标志
       this.validparamError = false;
 
-      if (this.form.description === '默认情景') {
+      if (this.form.description === '创建项目') {
         this.form.description = '模型配置';
       }
       this.$refs["form"].validate(valid => {

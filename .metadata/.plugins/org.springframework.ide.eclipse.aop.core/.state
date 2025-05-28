@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<aop-reference-model>
+<aop-project name="ruoyi-admin"/>
+<aop-project name="ruoyi-project"/>
+<aop-project name="ruoyi-system"/>
+<aop-project name="ruoyi-generator"/>
+<aop-project name="ruoyi-framework"/>
+<aop-project name="ruoyi-common"/>
+<aop-project name="ruoyi-quartz"/>
+</aop-reference-model>

@@ -61,7 +61,7 @@
               <li>样本效率：通常需要较少的函数评估即可找到全局最优解</li>
               <li>概率框架：提供优化结果的不确定性估计</li>
             </ul>
-            <p>在SWAT模型参数率定中，贝叶斯优化能高效探索参数空间，快速收敛到最优参数组合，显著减少计算资源消耗。</p>
+            <p>在模型参数率定中，贝叶斯优化能高效探索参数空间，快速收敛到最优参数组合，显著减少计算资源消耗。</p>
           </div>
         </el-card>
       </el-col>
@@ -119,7 +119,7 @@
     <!-- 添加一个底部按钮区域 -->
     <div class="action-bar">
       <el-tooltip content="请先上传观测数据" placement="top" :disabled="dataUploaded">
-        <el-button type="primary" @click="startCalibration" size="medium" :disabled="!dataUploaded">开始率定</el-button>
+        <el-button type="primary" @click="startCalibration" size="medium" :disabled="!dataUploaded">下一步</el-button>
       </el-tooltip>
     </div>
   </div>
@@ -416,6 +416,10 @@ export default {
     startCalibration() {
       // 这里添加调用率定API的代码
       this.$message.success("开始率定参数，请在[系统监控/率定任务列表]中查看进度");
+      this.$router.push({
+        path: '/project/project_calibrationdetail',
+        query: { id: this.caseId }
+      });
     },
     
     // 重置表单
