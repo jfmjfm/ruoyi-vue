@@ -87,13 +87,6 @@
             @click="handleView(scope.row)"
             v-hasPermi="['project:project_region:view']"
           >查看</el-button>
-          <el-button
-            size="mini"
-            type="text"
-            icon="el-icon-delete"
-            @click="handleDelete(scope.row)"
-            v-hasPermi="['project:project_region:remove']"
-          >删除</el-button>
         </template>
       </el-table-column>
     </el-table>
