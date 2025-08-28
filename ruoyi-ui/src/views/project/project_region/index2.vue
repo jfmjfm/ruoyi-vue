@@ -35,7 +35,7 @@
           :disabled="single"
           @click="handleUpdate"
           v-hasPermi="['project:project_region:edit']"
-        >修改</el-button>
+        >重设</el-button>
       </el-col>
       <el-col :span="1.5">
         <el-button
@@ -86,7 +86,7 @@
             icon="el-icon-edit"
             @click="handleUpdate(scope.row)"
             v-hasPermi="['project:project_region:edit']"
-          >修改</el-button>
+          >重设</el-button>
           <el-button
             size="mini"
             type="text"
@@ -346,7 +346,7 @@ export default {
         }
         
         this.open = true;
-        this.title = "修改项目区域";
+        this.title = "重设服务类型";
       });
     },
     /** 查看按钮操作-跳转到GIS页面 */

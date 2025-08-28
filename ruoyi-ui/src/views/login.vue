@@ -134,12 +134,12 @@ export default {
         },
         {
           image: require("@/assets/images/Sequoia4.jpg"),
-          title: "分布式资源适配技术",
-          description: "提高生态产品核算性能"
+          title: "云原生技术构建并行计算栈",
+          description: "分布式资源适配技术提高生态产品核算性能"
         },
         {
           image: require("@/assets/images/Sequoia5.jpg"),
-          title: "生态产品供给与利用差异化核算技术",
+          title: "生态产品供给与利用差异化核算",
           description: "更为有效支撑核算成果应用"
         },
         {
@@ -241,21 +241,57 @@ html, body {
 
 .slide-content {
   text-align: center;
-  background-color: rgba(0, 0, 0, 0.5);
-  padding: 20px;
-  border-radius: 8px;
+  background-color: rgba(0, 0, 0, 0.6);
+  padding: 40px 30px;
+  border-radius: 12px;
   color: white;
-  max-width: 500px;
+  max-width: 800px;
   margin: 0 auto;
+  backdrop-filter: blur(5px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .slide-content h2 {
-  font-size: 28px;
-  margin-bottom: 10px;
+  font-size: 48px;
+  margin-bottom: 20px;
+  font-weight: 600;
+  line-height: 1.2;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
 }
 
 .slide-content p {
-  font-size: 18px;
+  font-size: 24px;
+  line-height: 1.4;
+  font-weight: 400;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+/* 响应式字体大小 */
+@media (max-width: 1200px) {
+  .slide-content h2 {
+    font-size: 40px;
+  }
+  .slide-content p {
+    font-size: 20px;
+  }
+}
+
+@media (max-width: 768px) {
+  .slide-content h2 {
+    font-size: 32px;
+  }
+  .slide-content p {
+    font-size: 18px;
+  }
+}
+
+@media (max-width: 480px) {
+  .slide-content h2 {
+    font-size: 24px;
+  }
+  .slide-content p {
+    font-size: 16px;
+  }
 }
 
 .login-dialog {
@@ -382,5 +418,37 @@ html, body {
 // Additional styling for the dialog backdrop
 .v-modal {
   opacity: 0.7 !important;
+}
+
+// 增大轮播图切换按钮大小
+.login .el-carousel__arrow {
+  width: 50px !important;
+  height: 50px !important;
+  font-size: 24px !important;
+  background-color: rgba(255, 255, 255, 0.5) !important;
+  border-radius: 50% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: all 0.3s ease !important;
+}
+
+.login .el-carousel__arrow:hover {
+  background-color: rgba(255, 255, 255, 0.8) !important;
+  transform: scale(1.1) !important;
+}
+
+.login .el-carousel__arrow i {
+  font-size: 24px !important;
+  color: #333 !important;
+}
+
+// 确保按钮在移动端也可见
+@media (max-width: 768px) {
+  .login .el-carousel__arrow {
+    width: 40px !important;
+    height: 40px !important;
+    font-size: 20px !important;
+  }
 }
 </style>
