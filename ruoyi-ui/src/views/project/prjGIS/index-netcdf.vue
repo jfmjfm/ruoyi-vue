@@ -54,6 +54,80 @@
       </div>
     </div>
     
+    <!-- GeoServer 动画控制面板 -->
+    <div class="geoserver-animation-panel" :class="{ 'panel-collapsed': animationPanelCollapsed }">
+      <div class="panel-header">
+        <span><strong>WMS 动画控制器</strong></span>
+        <div class="panel-controls">
+          <i :class="animationPanelCollapsed ? 'el-icon-arrow-down' : 'el-icon-arrow-up'" 
+             @click="animationPanelCollapsed = !animationPanelCollapsed"></i>
+        </div>
+      </div>
+      <div v-if="!animationPanelCollapsed" class="panel-body">
+        <div class="control-row">
+          <label>起始日期</label>
+          <el-date-picker
+            v-model="wmsStartDate"
+            type="date"
+            placeholder="选择日期"
+            format="yyyy-MM-dd"
+            value-format="yyyy-MM-dd"
+            size="small">
+          </el-date-picker>
+        </div>
+        <div class="control-row">
+          <div class="control-group">
+            <label>步长(天)</label>
+            <el-input-number
+              v-model="wmsStepDays"
+              :min="1"
+              :max="30"
+              size="small"
+              style="width: 100px;">
+            </el-input-number>
+          </div>
+          <div class="control-group">
+            <label>间隔(秒)</label>
+            <el-input-number
+              v-model="wmsIntervalSeconds"
+              :min="0.2"
+              :max="10"
+              :step="0.1"
+              :precision="1"
+              size="small"
+              style="width: 100px;">
+            </el-input-number>
+          </div>
+        </div>
+        <div class="control-row">
+          <el-button type="primary" size="small" @click="startWmsAnimation" :disabled="wmsAnimationRunning">
+            <i class="el-icon-video-play"></i> 开始
+          </el-button>
+          <el-button type="default" size="small" @click="stopWmsAnimation" :disabled="!wmsAnimationRunning">
+            <i class="el-icon-video-pause"></i> 停止
+          </el-button>
+          <el-button type="default" size="small" @click="nextWmsFrame">
+            <i class="el-icon-d-arrow-right"></i> 单步
+          </el-button>
+        </div>
+        <div class="control-row">
+          <el-button type="info" size="small" @click="generateTestUrl">
+            <i class="el-icon-link"></i> 测试URL
+          </el-button>
+          <el-button type="info" size="small" @click="fitToDataBounds">
+            <i class="el-icon-full-screen"></i> 适配范围
+          </el-button>
+        </div>
+        <div class="status-row">
+          <span class="status-label">当前时间:</span>
+          <span class="status-value">{{ wmsCurrentDateLabel }}</span>
+        </div>
+        <div class="notice-row">
+          <span class="notice-text">注意：transition 时间应小于间隔；若看不到图请检查 GeoServer / CORS / 内网访问</span>
+        </div>
+      </div>
+    </div>
+    
     <!-- 图例面板 - 使用计算属性 -->
     <div class="legend-panel" v-show="showLegend && activePanelIndex !== null">
       <div class="legend-header">{{ activePanelIndex !== null && menuItems[activePanelIndex] ? menuItems[activePanelIndex].fullName : '图例' }}</div>
@@ -849,17 +923,6 @@
                 <el-slider v-model="opacity" :min="0" :max="100"></el-slider>
               </div>
               <el-switch v-model="showLegend" active-text="图例"></el-switch>
-              
-              <!-- WMS图层控制 -->
-              <el-divider content-position="left">WMS图层</el-divider>
-              <div class="wms-control">
-                <el-switch v-model="wmsLayerVisible" active-text="SWAT侵蚀图层" @change="toggleWmsLayer"></el-switch>
-                <div class="opacity-control" v-if="wmsLayerVisible">
-                  <span>图层透明度</span>
-                  <el-slider v-model="wmsLayerOpacity" :min="0" :max="100" @change="updateWmsLayerOpacity"></el-slider>
-                </div>
-              </div>
-              
               <div class="layer-list">
                 <el-collapse v-model="activeCategories">
                   <el-collapse-item v-for="category in categories" :key="category.name" :title="category.name">
@@ -885,10 +948,10 @@ import XYZ from 'ol/source/XYZ';
 import ImageWMS from 'ol/source/ImageWMS';
 import { fromLonLat, transformExtent } from 'ol/proj';
 import { defaults as defaultControls } from 'ol/control';
+import { getBottomLeft, getTopRight } from 'ol/extent';
 
 import { getProject_region } from "@/api/project/project_region";
 import { listProject_region_service } from "@/api/project/project_region_service";
-import { listProject_service_case } from "@/api/project/project_service_case";
 import { parseTime } from "@/utils/ruoyi";
 import * as echarts from 'echarts';
 
@@ -930,10 +993,44 @@ export default {
         { name: '街道地图', type: 'street' }
       ],
       isMeasureActive: false,
-      // 根据WMS图层边界框设置初始地图中心点和缩放级别
-      // 边界框: 118.41667877737004,44.452917782192465,119.14330242199273,45.23305354431723
-      initialMapCenter: [118.779990599681385, 44.84298566325485], // 计算的中心点
-      initialMapZoom: 9, // 调整缩放级别以显示WMS图层区域
+      initialMapCenter: [116.397428, 39.90923],
+      initialMapZoom: 7,
+      
+      // WMS 动画相关配置
+      animationPanelCollapsed: false,
+      wmsConfig: {
+        url: "http://172.16.124.1:31490/geoserver/repa/wms",
+        layers: "repa:runoff-147-0-vic-295",
+        fixedParams: {
+          service: "WMS",
+          version: "1.1.0",
+          request: "GetMap",
+          format: "image/png",
+          transparent: true,
+          styles: "",
+          srs: "EPSG:4326",
+          bbox: "115.56400000000001,39.7416,119.614,42.73859999999999",
+          width: 768,
+          height: 568
+        }
+      },
+      wmsStartDate: '2009-06-29',
+      wmsStepDays: 1,
+      wmsIntervalSeconds: 2.0,
+      wmsCurrentDate: null,
+      wmsCurrentDateLabel: '—',
+      wmsAnimationRunning: false,
+      wmsAnimationTimer: null,
+      wmsLayers: [null, null], // 双缓冲图层容器
+      wmsCurrentLayerIndex: 0, // 当前显示的图层索引
+      wmsTransitionMs: 800, // 过渡动画时间（毫秒）
+      wmsLoadTimeoutMs: 5000, // 图层加载超时时间
+      wmsDataBounds: {
+        minLng: 115.564,
+        minLat: 39.7416,
+        maxLng: 119.614,
+        maxLat: 42.7386
+      },
       
       waterSupplyThreshold: 200,
       waterSupplyLayers: ['precipitationLayer', 'runoffLayer'],
@@ -955,11 +1052,6 @@ export default {
       
       cropType: 'wheat',
       foodLayers: ['croplandLayer'],
-      
-      // WMS图层控制
-      wmsLayer: null,
-      wmsLayerVisible: true,
-      wmsLayerOpacity: 80,
       
       activeEcoService: ['potentialSupply0', 'potentialSupply1', 'potentialSupply2', 'potentialSupply3', 
                         'potentialSupply4', 'potentialSupply5', 'potentialSupply6', 'potentialSupply7'],
@@ -1101,15 +1193,6 @@ export default {
         mapRendered: false
       },
       
-      // 服务案例数据
-      serviceCases: [],
-      
-      // 区域服务列表
-      regionServices: [],
-      
-      // 当前激活的WMS配置
-      activeWMSConfig: null,
-      
       // 添加场景模型变量
       scenario0: 'baseline',
       scenario1: 'baseline',
@@ -1174,6 +1257,21 @@ export default {
     // 清理时间动画相关资源
     this.stopTimeAnimation();
     
+    // 清理WMS动画相关资源
+    this.stopWmsAnimation();
+    if (this.wmsLayers) {
+      this.wmsLayers.forEach(layer => {
+        if (layer && this.map) {
+          try {
+            this.map.removeLayer(layer);
+          } catch (e) {
+            // 忽略移除图层时的错误
+          }
+        }
+      });
+      this.wmsLayers = [null, null];
+    }
+    
     // 清理定时器
     if (this.resizeTimer) {
       clearTimeout(this.resizeTimer);
@@ -1223,8 +1321,7 @@ export default {
             preload: 0, // 减少预加载，按需加载提高性能
             transition: 200 // 添加切换动画但保持较短以避免性能损失
           }),
-          preload: 0,
-          zIndex: 0  // 底图在最下层
+          preload: 0
         }),
         // 天地图标注图层
         new TileLayer({
@@ -1233,35 +1330,9 @@ export default {
             maxZoom: 18,
             preload: 0
           }),
-          preload: 0,
-          zIndex: 1  // 标注在底图之上
+          preload: 0
         })
       ];
-      
-      // 添加WMS图层 - 完全透明，不遮挡底图
-      const wmsLayer = new ImageLayer({
-        source: new ImageWMS({
-          url: 'http://172.16.124.1:31490/geoserver/repa/wms',
-          params: {
-            'LAYERS': 'repa:usle_swat',
-            'FORMAT': 'image/png',
-            'TRANSPARENT': true,
-            'VERSION': '1.1.0',
-            'STYLES': '',
-            'BGCOLOR': '0x000000'  // 背景色设为黑色，配合TRANSPARENT使其透明
-          },
-          serverType: 'geoserver',
-          crossOrigin: 'anonymous',
-          ratio: 1.5,
-          imageSmoothing: true  // 启用图像平滑
-        }),
-        opacity: 0.7,  // 降低透明度，让底图更明显
-        visible: false,  // 初始不可见，由菜单激活时才显示
-        zIndex: 10  // 在底图和标注之上
-      });
-      
-      // 将WMS图层添加到基础图层数组中
-      baseLayers.push(wmsLayer);
       
       // 创建地图实例
       this.map = new Map({
@@ -1269,46 +1340,209 @@ export default {
         controls: [],
         layers: baseLayers,
         view: new View({
-          center: this.initialMapCenter, // 直接使用经纬度坐标，不需要转换
+          center: fromLonLat(this.initialMapCenter),
           zoom: this.initialMapZoom,
           minZoom: 4,
           maxZoom: 19,
-          constrainResolution: true,
-          projection: 'EPSG:4326' // 使用WMS图层相同的投影坐标系
+          constrainResolution: true
         }),
         pixelRatio: window.devicePixelRatio > 1 ? 2 : 1, // 根据设备像素比优化渲染
         loadTilesWhileInteracting: true,
         loadTilesWhileAnimating: true
       });
       
-      // 移除地图容器的背景色，确保完全透明
-      const mapElement = document.getElementById('map');
-      if (mapElement) {
-        mapElement.style.backgroundColor = 'transparent';
-      }
-      
       // 设置视图渲染间隔以优化CPU使用
       this.map.once('rendercomplete', () => {
         console.log('地图加载完成');
         this.map.updateSize(); // 确保地图尺寸正确
+        // 初始化WMS动画功能
+        this.initWmsAnimation();
+      });
+    },
+    
+    // ============== WMS 动画相关方法 ==============
+    
+    // 初始化WMS动画功能
+    initWmsAnimation() {
+      this.wmsCurrentDate = this.parseDateSafe(this.wmsStartDate);
+      this.wmsCurrentDateLabel = this.formatDate(this.wmsCurrentDate);
+      
+      // 创建并显示第一帧
+      this.initWmsFirstFrame();
+    },
+    
+    // 安全地解析日期字符串
+    parseDateSafe(dateStr) {
+      if (!dateStr) return new Date();
+      const parts = dateStr.split('-');
+      if (parts.length !== 3) return new Date(dateStr);
+      return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+    },
+    
+    // 格式化日期为字符串
+    formatDate(date) {
+      const yyyy = date.getFullYear();
+      const mm = String(date.getMonth() + 1).padStart(2, '0');
+      const dd = String(date.getDate()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
+    },
+    
+    // 创建WMS图层
+    createWmsLayer(dateStr) {
+      const cb = Date.now(); // 缓存破坏参数
+      
+      const wmsSource = new ImageWMS({
+        url: this.wmsConfig.url,
+        params: {
+          'LAYERS': this.wmsConfig.layers,
+          'FORMAT': this.wmsConfig.fixedParams.format,
+          'TRANSPARENT': this.wmsConfig.fixedParams.transparent,
+          'VERSION': this.wmsConfig.fixedParams.version,
+          'TIME': dateStr,
+          '_cb': cb
+        },
+        ratio: 1,
+        serverType: 'geoserver'
       });
       
-      // 保存WMS图层引用以便后续控制
-      this.wmsLayer = wmsLayer;
+      const layer = new ImageLayer({
+        source: wmsSource,
+        opacity: 1,
+        zIndex: 100 // 确保WMS图层在底图之上
+      });
+      
+      console.log('创建 WMS 图层:', {
+        url: this.wmsConfig.url,
+        layers: this.wmsConfig.layers,
+        time: dateStr
+      });
+      
+      return layer;
     },
     
-    // WMS图层控制方法
-    toggleWmsLayer(visible) {
-      if (this.wmsLayer) {
-        this.wmsLayer.setVisible(visible);
-      }
+    // 初始化第一帧
+    initWmsFirstFrame() {
+      const dateStr = this.formatDate(this.wmsCurrentDate);
+      console.log('初始化WMS首帧，日期:', dateStr);
+      
+      const firstLayer = this.createWmsLayer(dateStr);
+      this.wmsLayers[this.wmsCurrentLayerIndex] = firstLayer;
+      this.map.addLayer(firstLayer);
+      
+      // 设置初始透明度和过渡效果
+      setTimeout(() => {
+        const layerElement = firstLayer.getRenderer().getElement();
+        if (layerElement) {
+          layerElement.style.transition = `opacity ${this.wmsTransitionMs}ms ease`;
+        }
+      }, 100);
     },
     
-    updateWmsLayerOpacity(opacity) {
-      if (this.wmsLayer) {
-        this.wmsLayer.setOpacity(opacity / 100);
+    // 切换到指定日期（双缓冲机制）
+    switchToWmsDate(dateObj) {
+      const dateStr = this.formatDate(dateObj);
+      this.wmsCurrentDateLabel = dateStr;
+      
+      const nextIndex = 1 - this.wmsCurrentLayerIndex;
+      
+      // 清理下一个位置的图层
+      if (this.wmsLayers[nextIndex]) {
+        this.map.removeLayer(this.wmsLayers[nextIndex]);
+        this.wmsLayers[nextIndex] = null;
       }
+      
+      const nextLayer = this.createWmsLayer(dateStr);
+      this.wmsLayers[nextIndex] = nextLayer;
+      
+      // 添加新图层到地图
+      this.map.addLayer(nextLayer);
+      
+      const oldLayer = this.wmsLayers[this.wmsCurrentLayerIndex];
+      
+      // 设置新图层初始透明度为0
+      setTimeout(() => {
+        const layerElement = nextLayer.getRenderer().getElement();
+        if (layerElement) {
+          layerElement.style.transition = `opacity ${this.wmsTransitionMs}ms ease`;
+          layerElement.style.opacity = '0';
+          
+          // 淡入新图层
+          setTimeout(() => {
+            layerElement.style.opacity = '1';
+          }, 50);
+        }
+      }, 100);
+      
+      // 在过渡完成后移除旧图层
+      setTimeout(() => {
+        if (oldLayer) {
+          this.map.removeLayer(oldLayer);
+          this.wmsLayers[this.wmsCurrentLayerIndex] = null;
+        }
+        this.wmsCurrentLayerIndex = nextIndex;
+      }, this.wmsTransitionMs + 100);
     },
+    
+    // 开始WMS动画
+    startWmsAnimation() {
+      this.stopWmsAnimation(); // 先停止之前的动画
+      
+      // 从输入的起始日期开始
+      this.wmsCurrentDate = this.parseDateSafe(this.wmsStartDate);
+      this.switchToWmsDate(this.wmsCurrentDate);
+      
+      const intervalMs = Math.max(200, this.wmsIntervalSeconds * 1000);
+      
+      this.wmsAnimationTimer = setInterval(() => {
+        this.wmsCurrentDate.setDate(this.wmsCurrentDate.getDate() + this.wmsStepDays);
+        this.switchToWmsDate(this.wmsCurrentDate);
+      }, intervalMs);
+      
+      this.wmsAnimationRunning = true;
+    },
+    
+    // 停止WMS动画
+    stopWmsAnimation() {
+      if (this.wmsAnimationTimer) {
+        clearInterval(this.wmsAnimationTimer);
+        this.wmsAnimationTimer = null;
+      }
+      this.wmsAnimationRunning = false;
+    },
+    
+    // 单步前进
+    nextWmsFrame() {
+      this.wmsCurrentDate.setDate(this.wmsCurrentDate.getDate() + this.wmsStepDays);
+      this.switchToWmsDate(this.wmsCurrentDate);
+    },
+    
+    // 生成测试URL
+    generateTestUrl() {
+      const dateStr = this.formatDate(this.wmsCurrentDate);
+      const params = Object.assign({}, this.wmsConfig.fixedParams, { time: dateStr });
+      const urlParams = new URLSearchParams(params);
+      const testUrl = `${this.wmsConfig.url}?${urlParams}`;
+      console.log('测试 URL:', testUrl);
+      this.$message.success('测试 URL 已输出到控制台，可复制到浏览器测试');
+    },
+    
+    // 适配到数据范围
+    fitToDataBounds() {
+      const extent = [
+        this.wmsDataBounds.minLng,
+        this.wmsDataBounds.minLat,
+        this.wmsDataBounds.maxLng,
+        this.wmsDataBounds.maxLat
+      ];
+      const transformedExtent = transformExtent(extent, 'EPSG:4326', 'EPSG:3857');
+      this.map.getView().fit(transformedExtent, {
+        duration: 1000,
+        padding: [50, 50, 50, 50]
+      });
+      console.log('地图已适配到数据范围');
+    },
+    
+    // ============== 原有方法继续 ==============
     
     loadServiceTypeDictionary() {
       this.getDicts("sys_service_type").then(response => {
@@ -1329,8 +1563,7 @@ export default {
             }
           }
           
-          // 只有在 serviceCases 已准备好时才生成菜单
-          if (this.serviceCases && this.serviceCases.length > 0) {
+          if (this.regionDetail || this.serviceTypes.length > 0) {
             this.generateMenuItems();
           }
         } else {
@@ -1347,8 +1580,7 @@ export default {
         this.regionDetail = this.dataCache.regionDetails[regionId];
         this.regionInfo.regionName = this.regionDetail.regionName;
         
-        // 只有在 serviceCases 已准备好时才生成菜单
-        if (this.serviceTypeOptions.length > 0 && this.serviceCases && this.serviceCases.length > 0) {
+        if (this.serviceTypeOptions.length > 0) {
           this.generateMenuItems();
         }
         return Promise.resolve();
@@ -1363,8 +1595,7 @@ export default {
           // 存入缓存
           this.dataCache.regionDetails[regionId] = response.data;
           
-          // 只有在 serviceCases 已准备好时才生成菜单
-          if (this.serviceTypeOptions.length > 0 && this.serviceCases && this.serviceCases.length > 0) {
+          if (this.serviceTypeOptions.length > 0) {
             this.generateMenuItems();
           }
         } else {
@@ -1382,16 +1613,10 @@ export default {
       listProject_region_service({ regionId: regionId }).then(response => {
         if (response && response.code === 200 && response.rows) {
           this.serviceTypes = response.rows.map(item => item.serviceType);
-          this.regionServices = response.rows;
           
-          // 提取所有 region_service_id
-          const regionServiceIds = response.rows.map(item => {
-            const id = item.id;
-            return typeof id === 'string' ? parseInt(id, 10) : id;
-          });
-          
-          // 获取服务案例
-          this.fetchServiceCases(regionServiceIds);
+          if (this.serviceTypeOptions.length > 0) {
+            this.generateMenuItems();
+          }
         } else {
           this.$message.warning('获取区域服务类型失败或无服务类型');
         }
@@ -1400,163 +1625,7 @@ export default {
       });
     },
     
-    // 获取服务案例数据（is_default = 1）
-    fetchServiceCases(regionServiceIds) {
-      if (!regionServiceIds || regionServiceIds.length === 0) {
-        this.$message.warning('未找到区域服务');
-        this.generateMenuItemsFallback();
-        return;
-      }
-      
-      // 查询所有 project_service_case 记录
-      listProject_service_case({
-        pageNum: 1,
-        pageSize: 9999
-      }).then(response => {
-        if (!response || response.code !== 200 || !response.rows) {
-          this.$message.error('获取服务案例失败');
-          this.generateMenuItemsFallback();
-          return;
-        }
-        
-        // 前端筛选：region_service_id 在列表中 且 is_default = 1
-        const filteredCases = response.rows.filter(item => {
-          // 获取字段值（兼容驼峰和下划线命名）
-          const regionServiceId = item.regionServiceId !== undefined ? item.regionServiceId : item.region_service_id;
-          const isDefault = item.isDefault !== undefined ? item.isDefault : item.is_default;
-          
-          // 转换为数字进行比较
-          const normalizedId = typeof regionServiceId === 'string' ? parseInt(regionServiceId) : regionServiceId;
-          const normalizedDefault = typeof isDefault === 'string' ? parseInt(isDefault) : isDefault;
-          
-          // 条件1: region_service_id 在列表中
-          const inList = regionServiceIds.includes(normalizedId);
-          
-          // 条件2: is_default = 1
-          const isDefaultOne = normalizedDefault === 1;
-          
-          return inList && isDefaultOne;
-        });
-        
-        if (filteredCases.length > 0) {
-          this.serviceCases = filteredCases;
-          
-          // 等待字典加载完成再生成菜单
-          if (this.serviceTypeOptions.length > 0) {
-            this.generateMenuItems();
-          } else {
-            // 延迟等待字典加载
-            setTimeout(() => {
-              if (this.serviceTypeOptions.length > 0) {
-                this.generateMenuItems();
-              }
-            }, 500);
-          }
-        } else {
-          this.$message.warning('未找到可用的服务案例（is_default=1）');
-          this.generateMenuItemsFallback();
-        }
-      }).catch(error => {
-        this.$message.error('获取服务案例失败');
-        this.generateMenuItemsFallback();
-      });
-    },
-    
-    // 解析 case_dir 字段，提取 WMS URL 和时间配置
-    parseCaseDir(caseDir) {
-      if (!caseDir || typeof caseDir !== 'string') {
-        return null;
-      }
-      
-      // 移除开头的 @ 符号（如果存在）
-      let cleanDir = caseDir.trim();
-      if (cleanDir.startsWith('@')) {
-        cleanDir = cleanDir.substring(1);
-      }
-      
-      // 使用 ||| 分隔符分割
-      const parts = cleanDir.split('|||');
-      
-      if (parts.length < 2) {
-        // 如果没有配置信息，返回基本的 WMS URL
-        return {
-          wmsUrl: parts[0].trim(),
-          duration: null,
-          units: null,
-          time_start: null,
-          time_end: null
-        };
-      }
-      
-      try {
-        // 解析第二部分的 JSON 配置
-        const config = JSON.parse(parts[1].trim());
-        
-        return {
-          wmsUrl: parts[0].trim(),
-          duration: config.duration || null,
-          units: config.units || 'year',
-          time_start: config.time_start || null,
-          time_end: config.time_end || null
-        };
-      } catch (error) {
-        console.error('解析 case_dir 配置失败:', error);
-        return {
-          wmsUrl: parts[0].trim(),
-          duration: null,
-          units: null,
-          time_start: null,
-          time_end: null
-        };
-      }
-    },
-    
-    // 基于服务案例生成菜单项
     generateMenuItems() {
-      const items = [];
-      
-      if (this.serviceCases && this.serviceCases.length > 0) {
-        this.serviceCases.forEach((serviceCase, index) => {
-          // 兼容多种字段命名
-          const caseDir = serviceCase.caseDir || serviceCase.case_dir;
-          const caseName = serviceCase.caseName || serviceCase.case_name;
-          const serviceType = serviceCase.serviceType || serviceCase.service_type;
-          
-          // 解析 case_dir 获取 WMS 配置
-          const wmsConfig = this.parseCaseDir(caseDir);
-          
-          // 获取服务类型名称
-          let typeName = caseName || '未命名服务';
-          let typeId = serviceType || String(index);
-          
-          // 尝试从字典中获取服务类型信息
-          const dictItem = this.serviceTypeOptions.find(item => String(item.dictValue) === String(typeId));
-          if (dictItem) {
-            typeName = dictItem.dictLabel || typeName;
-          }
-          
-          // 创建菜单项
-          const menuItem = this.createMenuItem(typeName, typeId);
-          
-          // 附加服务案例的额外信息
-          menuItem.caseId = serviceCase.id;
-          menuItem.wmsConfig = wmsConfig;
-          menuItem.serviceCase = serviceCase;
-          
-          items.push(menuItem);
-        });
-      }
-      
-      if (items.length === 0) {
-        this.generateMenuItemsFallback();
-        return;
-      }
-      
-      this.menuItems = items;
-    },
-    
-    // 回退方法：使用原有逻辑生成菜单项
-    generateMenuItemsFallback() {
       const items = [];
       const processedTypes = new Set();
       
@@ -1603,6 +1672,7 @@ export default {
             type: '0'
           });
         }
+        this.$message.warning('未找到区域的服务类型，显示默认服务');
       }
       
       this.menuItems = items;
@@ -1677,20 +1747,6 @@ export default {
         this.activePanelIndex = null;
         // 清理图表资源
         this.cleanupChartByIndex(index);
-        // 清除活动的 WMS 配置
-        this.activeWMSConfig = null;
-        // 隐藏WMS图层
-        if (this.wmsLayer) {
-          this.wmsLayer.setVisible(false);
-        }
-        // 恢复到初始视图范围（可选，平滑过渡）
-        if (this.map) {
-          this.map.getView().animate({
-            center: this.initialMapCenter,
-            zoom: this.initialMapZoom,
-            duration: 800
-          });
-        }
         return;
       }
       
@@ -1703,239 +1759,11 @@ export default {
         this.cleanupChartByIndex(prevIndex);
       }
       
-      // 获取当前菜单项的 WMS 配置
-      const menuItem = this.menuItems[index];
-      if (menuItem && menuItem.wmsConfig) {
-        this.activeWMSConfig = menuItem.wmsConfig;
-        
-        // 根据时间配置调整时间轴范围
-        this.adjustTimelineByWMSConfig(menuItem.wmsConfig);
-        
-        // 加载初始年的 WMS 图层（内部会调整地图范围到WMS的bbox）
-        this.$nextTick(() => {
-          this.loadWMSLayer(menuItem.wmsConfig, this.currentYear);
-        });
-      }
-      
       // 延迟渲染新面板的图表以确保DOM已更新
       this.$nextTick(() => {
         // 优化：不要自动渲染图表，等待用户点击按钮
         // 这里只是准备容器
       });
-    },
-    
-    // 根据 WMS 配置调整时间轴范围
-    adjustTimelineByWMSConfig(wmsConfig) {
-      if (!wmsConfig) return;
-      
-      // 解析开始和结束时间
-      if (wmsConfig.time_start && wmsConfig.time_end) {
-        try {
-          const startDate = new Date(wmsConfig.time_start);
-          const endDate = new Date(wmsConfig.time_end);
-          
-          const startYear = startDate.getFullYear();
-          const endYear = endDate.getFullYear();
-          
-          // 更新时间轴范围
-          this.minYear = startYear;
-          this.maxYear = endYear;
-          
-          // 设置当前年为起始年
-          this.currentYear = startYear;
-          
-          // 根据持续时间动态生成时间标记
-          this.generateTimeMarks(startYear, endYear, wmsConfig.duration);
-          
-          console.log(`时间轴已调整: ${startYear} - ${endYear}, 持续时间: ${wmsConfig.duration} ${wmsConfig.units}`);
-        } catch (error) {
-          console.error('解析时间配置失败:', error);
-        }
-      } else if (wmsConfig.duration && wmsConfig.time_start) {
-        // 如果只有起始时间和持续时间
-        try {
-          const startDate = new Date(wmsConfig.time_start);
-          const startYear = startDate.getFullYear();
-          
-          // 根据单位计算结束年份
-          let endYear = startYear;
-          if (wmsConfig.units === 'year') {
-            endYear = startYear + wmsConfig.duration - 1;
-          } else if (wmsConfig.units === 'month') {
-            endYear = startYear + Math.floor(wmsConfig.duration / 12);
-          }
-          
-          this.minYear = startYear;
-          this.maxYear = endYear;
-          this.currentYear = startYear;
-          
-          this.generateTimeMarks(startYear, endYear, wmsConfig.duration);
-          
-          console.log(`时间轴已调整: ${startYear} - ${endYear}, 持续时间: ${wmsConfig.duration} ${wmsConfig.units}`);
-        } catch (error) {
-          console.error('解析时间配置失败:', error);
-        }
-      }
-    },
-    
-    // 动态生成时间标记
-    generateTimeMarks(startYear, endYear, duration) {
-      const marks = {};
-      const range = endYear - startYear;
-      
-      if (range <= 0) {
-        marks[String(startYear)] = String(startYear);
-        this.timeMarks = marks;
-        return;
-      }
-      
-      // 根据范围动态确定标记间隔
-      let interval = 1;
-      if (range > 50) {
-        interval = 10;
-      } else if (range > 20) {
-        interval = 5;
-      } else if (range > 10) {
-        interval = 2;
-      }
-      
-      // 添加起始和结束年份
-      marks[String(startYear)] = String(startYear);
-      
-      // 添加中间标记
-      for (let year = startYear + interval; year < endYear; year += interval) {
-        marks[String(year)] = String(year);
-      }
-      
-      // 添加结束年份
-      marks[String(endYear)] = String(endYear);
-      
-      this.timeMarks = marks;
-    },
-    
-    // 加载 WMS 图层
-    loadWMSLayer(wmsConfig, year) {
-      if (!wmsConfig || !wmsConfig.wmsUrl) {
-        console.warn('无效的 WMS 配置');
-        return;
-      }
-      
-      try {
-        // 解析 WMS URL 并更新时间参数
-        const updatedUrl = this.updateWMSUrlWithYear(wmsConfig.wmsUrl, year);
-        
-        // 查找或创建 WMS 图层
-        if (!this.wmsLayer) {
-          console.warn('WMS 图层未初始化，跳过加载');
-          return;
-        }
-        
-        // 首先显示WMS图层
-        this.wmsLayer.setVisible(true);
-        
-        // 更新 WMS 图层的参数
-        const source = this.wmsLayer.getSource();
-        if (source && source.updateParams) {
-          // 从 URL 中提取参数
-          const urlObj = new URL(updatedUrl);
-          const params = {
-            'FORMAT': 'image/png',
-            'TRANSPARENT': true,
-            'BGCOLOR': '0x000000'  // 背景色透明
-          };
-          
-          // 提取bbox参数用于调整地图范围
-          let bboxString = null;
-          
-          // 添加URL中的其他参数
-          urlObj.searchParams.forEach((value, key) => {
-            // 跳过service、request等基础参数，只保留业务参数
-            const upperKey = key.toUpperCase();
-            if (upperKey === 'BBOX') {
-              bboxString = value;
-            }
-            if (!['SERVICE', 'REQUEST', 'VERSION', 'FORMAT', 'TRANSPARENT', 'BGCOLOR'].includes(upperKey)) {
-              params[key] = value;
-            }
-          });
-          
-          // 强制覆盖关键参数确保透明
-          params['FORMAT'] = 'image/png';
-          params['TRANSPARENT'] = true;
-          params['BGCOLOR'] = '0x000000';
-          
-          // 更新图层参数
-          source.updateParams(params);
-          
-          // 调整地图视图范围到WMS图层的bbox
-          if (bboxString && this.map) {
-            try {
-              // bbox格式: minx,miny,maxx,maxy
-              const bboxArray = bboxString.split(',').map(coord => parseFloat(coord.trim()));
-              if (bboxArray.length === 4 && bboxArray.every(n => !isNaN(n))) {
-                // OpenLayers的extent格式: [minx, miny, maxx, maxy]
-                const extent = bboxArray;
-                
-                // 使用fit方法调整视图，添加动画效果和padding
-                this.map.getView().fit(extent, {
-                  duration: 1000,  // 动画持续时间1秒
-                  padding: [50, 50, 50, 50],  // 四周留出50像素的边距
-                  maxZoom: 12  // 限制最大缩放级别，避免过度放大
-                });
-              }
-            } catch (bboxError) {
-              console.warn('解析bbox失败:', bboxError);
-            }
-          }
-          
-          // 刷新图层
-          this.wmsLayer.changed();
-        } else {
-          console.warn('无法更新 WMS 图层参数');
-        }
-      } catch (error) {
-        console.error('加载 WMS 图层失败:', error);
-      }
-    },
-    
-    // 更新 WMS URL 中的年份参数
-    updateWMSUrlWithYear(wmsUrl, year) {
-      if (!wmsUrl) return wmsUrl;
-      
-      try {
-        // 检查 URL 中是否有 viewparams 参数
-        const urlObj = new URL(wmsUrl);
-        const viewparams = urlObj.searchParams.get('viewparams');
-        
-        if (viewparams) {
-          // 解析 viewparams，更新 sim_time
-          // 格式: sim_time:2009-01-01
-          const parts = viewparams.split(':');
-          if (parts.length >= 2) {
-            // 假设日期格式为 YYYY-MM-DD，只替换年份部分
-            const oldDate = parts[1];
-            const dateMatch = oldDate.match(/(\d{4})-(\d{2})-(\d{2})/);
-            
-            if (dateMatch) {
-              const month = dateMatch[2];
-              const day = dateMatch[3];
-              const newDate = `${year}-${month}-${day}`;
-              
-              // 更新 viewparams
-              const newViewparams = `sim_time:${newDate}`;
-              urlObj.searchParams.set('viewparams', newViewparams);
-              
-              return urlObj.toString();
-            }
-          }
-        }
-        
-        // 如果没有 viewparams 或解析失败，返回原 URL
-        return wmsUrl;
-      } catch (error) {
-        console.error('更新 WMS URL 失败:', error);
-        return wmsUrl;
-      }
     },
     
     // 添加按索引清理图表的方法
@@ -2340,20 +2168,6 @@ export default {
     
     closePanel() {
       this.activePanelIndex = null;
-      // 清除活动的 WMS 配置
-      this.activeWMSConfig = null;
-      // 隐藏WMS图层
-      if (this.wmsLayer) {
-        this.wmsLayer.setVisible(false);
-      }
-      // 恢复到初始视图范围
-      if (this.map) {
-        this.map.getView().animate({
-          center: this.initialMapCenter,
-          zoom: this.initialMapZoom,
-          duration: 800
-        });
-      }
     },
     
     isChartVisible(typeId) {
@@ -2513,7 +2327,7 @@ export default {
     resetMapView() {
       const view = this.map.getView();
       view.animate({
-        center: this.initialMapCenter, // 直接使用经纬度坐标
+        center: fromLonLat(this.initialMapCenter),
         zoom: this.initialMapZoom,
         duration: 1000, // 平滑动画持续1秒
         easing: function(t) {
@@ -2826,16 +2640,13 @@ export default {
         return;
       }
       
-      const menuItem = this.menuItems[this.activePanelIndex];
-      const serviceType = menuItem.type;
+      const serviceType = this.menuItems[this.activePanelIndex].type;
       if (!serviceType) return;
       
       console.log(`更新地图数据: 服务类型=${serviceType}, 年份=${year}`);
       
-      // 如果有 WMS 配置，更新 WMS 图层
-      if (this.activeWMSConfig && this.activeWMSConfig.wmsUrl) {
-        this.loadWMSLayer(this.activeWMSConfig, year);
-      }
+      // 此处应添加实际的地图图层更新逻辑
+      // 为避免性能问题，可以考虑使用Web Worker异步处理数据
     },
     
     // 添加新方法：使用IntersectionObserver实现懒加载
@@ -2987,22 +2798,10 @@ export default {
 .map-container {
   width: 100%;
   height: 100%;
-  background: transparent;  // 确保容器透明
   
   #map {
     width: 100%;
     height: 100%;
-    background: transparent;  // 确保地图背景透明
-    
-    // 确保OpenLayers的canvas也是透明的
-    canvas {
-      background: transparent !important;
-    }
-    
-    // 确保图层容器透明
-    .ol-layer {
-      background: transparent !important;
-    }
   }
 }
 
@@ -3182,25 +2981,6 @@ export default {
           margin-bottom: 6px;
           color: #409EFF;
           font-weight: bold;
-        }
-      }
-      
-      .wms-control {
-        margin: 15px 0;
-        padding: 10px;
-        background-color: #e8f4fd;
-        border-radius: 4px;
-        border: 1px solid #b3d8ff;
-        
-        .opacity-control {
-          margin-top: 10px;
-          
-          span {
-            display: block;
-            margin-bottom: 6px;
-            color: #409EFF;
-            font-weight: bold;
-          }
         }
       }
       
@@ -3430,6 +3210,120 @@ export default {
         display: flex;
         align-items: center;
         justify-content: center;
+      }
+    }
+  }
+}
+
+// GeoServer 动画控制面板样式
+.geoserver-animation-panel {
+  position: absolute;
+  left: 57px;
+  top: 5px;
+  width: 320px;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(2, 6, 23, 0.08);
+  z-index: 1000;
+  transition: all 0.3s;
+  font-size: 13px;
+  
+  &.panel-collapsed .panel-body {
+    display: none;
+  }
+  
+  .panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.98);
+    border-radius: 8px 8px 0 0;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    
+    span {
+      font-weight: 600;
+      color: #333;
+    }
+    
+    .panel-controls {
+      cursor: pointer;
+      color: #666;
+      
+      i {
+        font-size: 16px;
+        transition: all 0.3s;
+        
+        &:hover {
+          color: #409eff;
+        }
+      }
+    }
+  }
+  
+  .panel-body {
+    padding: 12px;
+    
+    .control-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 12px;
+      
+      &:last-child {
+        margin-bottom: 0;
+      }
+      
+      label {
+        display: block;
+        margin-bottom: 4px;
+        font-size: 12px;
+        color: #666;
+        font-weight: 500;
+      }
+      
+      .control-group {
+        flex: 1;
+        
+        label {
+          margin-bottom: 4px;
+        }
+      }
+      
+      .el-button {
+        margin-right: 4px;
+        
+        &:last-child {
+          margin-right: 0;
+        }
+      }
+    }
+    
+    .status-row {
+      margin-top: 8px;
+      padding: 8px;
+      background: rgba(64, 158, 255, 0.05);
+      border-radius: 4px;
+      font-size: 12px;
+      
+      .status-label {
+        color: #666;
+        margin-right: 8px;
+      }
+      
+      .status-value {
+        color: #409eff;
+        font-weight: 600;
+      }
+    }
+    
+    .notice-row {
+      margin-top: 8px;
+      
+      .notice-text {
+        font-size: 11px;
+        color: #999;
+        line-height: 1.4;
       }
     }
   }

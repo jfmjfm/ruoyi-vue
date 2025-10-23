@@ -42,6 +42,15 @@ module.exports = {
         pathRewrite: {
           ['^' + process.env.VUE_APP_BASE_API]: ''
         }
+      },
+      // 添加远程API代理 - 简单有效的配置
+      '/repa': {
+        target: 'http://172.16.124.1:8686',
+        changeOrigin: true,
+        pathRewrite: {
+          '^/repa': '/repa'
+        },
+        logLevel: 'debug'
       }
     },
     disableHostCheck: true

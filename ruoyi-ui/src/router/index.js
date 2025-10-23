@@ -8,6 +8,7 @@ import Layout from '@/layout'
 
 /**
  * Note: 路由配置项
+ * 覆盖菜单设计项
  *
  * hidden: true                     // 当设置 true 的时候该路由不会再侧边栏出现 如401，login等页面，或者如一些编辑页面/edit/1
  * alwaysShow: true                 // 当你一个路由下面的 children 声明的路由大于1个时，自动会变成嵌套的模式--如组件页面

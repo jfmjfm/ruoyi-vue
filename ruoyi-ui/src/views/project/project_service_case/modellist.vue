@@ -91,15 +91,15 @@
         <el-form-item label="上次更新" prop="updateTime">
           <el-input v-model="form.updateTime" placeholder="请输入更新时间" readonly />
         </el-form-item>
-        <el-form-item label="是否上传">
-          <el-button type="primary">远程查询，返回成功时激活确定按钮</el-button>
-        </el-form-item>
+                 <el-form-item label="是否上传">
+           <el-button type="primary" @click="handleRemoteQuery">远程查询</el-button>
+         </el-form-item>
         <el-form-item label="当前状态" prop="description">
           <el-input v-model="form.description" type="textarea" placeholder="请输入内容" readonly/>
         </el-form-item>
       </el-form>
       <div slot="footer" class="dialog-footer">
-        <el-button type="primary" @click="submitForm">确 定</el-button>
+        <el-button type="primary" @click="submitForm" :disabled="!submitButtonEnabled">确 定</el-button>
         <el-button @click="cancel">取 消</el-button>
       </div>
     </el-dialog>
@@ -109,6 +109,7 @@
 <script>
 import { listProject_service_case, getProject_service_case, delProject_service_case, addProject_service_case, updateProject_service_case } from "@/api/project/project_service_case";
 import { getDicts } from "@/api/system/dict/data";
+import axios from 'axios';
 
 export default {
   name: "Project_service_case",
@@ -164,7 +165,9 @@ export default {
         validparam: [
           { required: true, message: "模型参数不能为空", trigger: "blur" }
         ],
-      }
+      },
+      // 确定按钮是否启用
+      submitButtonEnabled: false
     };
   },
   created() {
@@ -226,6 +229,7 @@ export default {
         updateBy: null
       };
       this.resetForm("form");
+      this.submitButtonEnabled = false; // 重置确定按钮状态
     },
     /** 搜索按钮操作 */
     handleQuery() {
@@ -237,7 +241,68 @@ export default {
       this.resetForm("queryForm");
       this.handleQuery();
     },
-    // 多选框选中数据
+    /** 远程查询按钮操作 */
+    handleRemoteQuery() {
+      if (!this.form.createBy || !this.form.updateBy) {
+        this.$message.error("缺少必要的参数：create_by 或 update_by");
+        return;
+      }
+      
+      this.submitButtonEnabled = false; // 禁用确定按钮
+      this.$message.info("正在远程查询...");
+      
+             // 构建请求URL - 使用代理路径（已验证可用）
+       const url = `/repa/model/getuploadstatus?subdir=${this.form.id}/${this.form.createBy}/${this.form.updateBy}`;
+       console.log('请求URL:', url);
+       
+       // 发送HTTP请求
+       axios.get(url, {
+         timeout: 10000, // 设置超时时间
+         headers: {
+           'Content-Type': 'application/json'
+         }
+       })
+        .then(response => {
+          console.log('远程查询响应:', response);
+          const result = response.data;
+          
+          // 检查API返回的数据结构
+          if (result && result.data === true) {
+            this.submitButtonEnabled = true; // 启用确定按钮
+            this.$message.success("远程查询成功！模型已上传，可以确定操作。");
+          } else {
+            this.submitButtonEnabled = false; // 保持确定按钮禁用
+            this.$message.warning("远程查询完成，但模型未上传，无法确定操作。");
+          }
+        })
+                 .catch(error => {
+           console.error('远程查询失败:', error);
+           console.error('错误详情:', {
+             message: error.message,
+             status: error.response?.status,
+             statusText: error.response?.statusText,
+             data: error.response?.data,
+             config: error.config
+           });
+           
+           this.submitButtonEnabled = false; // 保持确定按钮禁用
+           
+           if (error.response?.status === 404) {
+             this.$message.error("远程查询失败：API接口不存在 (404)，请检查服务器地址和路径是否正确");
+           } else if (error.code === 'ECONNABORTED') {
+             this.$message.error("远程查询失败：请求超时，请检查网络连接");
+           } else if (error.message === 'Network Error') {
+             this.$message({
+               message: "远程查询失败：网络连接错误\n\n可能原因：\n1. 目标服务器不可达\n2. 网络防火墙阻止\n3. 服务器地址错误\n\n建议：\n1. 检查服务器地址是否正确\n2. 联系网络管理员\n3. 使用模拟数据进行测试",
+               type: 'error',
+               duration: 10000
+             });
+           } else {
+             this.$message.error("远程查询失败：" + (error.message || '网络错误'));
+           }
+         });
+         },
+      // 多选框选中数据
     handleSelectionChange(selection) {
       this.ids = selection.map(item => item.id)
       this.single = selection.length!==1

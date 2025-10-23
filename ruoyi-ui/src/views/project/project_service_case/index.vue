@@ -86,7 +86,7 @@
         </el-form-item>
       </el-form>
       <div slot="footer" class="dialog-footer">
-        <el-button type="primary" @click="submitForm">确 定</el-button>
+        <el-button type="primary" @click="submitForm">运行模型</el-button>
         <el-button @click="cancel">取 消</el-button>
       </div>
     </el-dialog>
@@ -96,6 +96,7 @@
 <script>
 import { listProject_service_case, getProject_service_case, delProject_service_case, addProject_service_case, updateProject_service_case } from "@/api/project/project_service_case";
 import { getDicts } from "@/api/system/dict/data";
+import axios from 'axios';
 
 export default {
   name: "Project_service_case",
@@ -174,7 +175,7 @@ export default {
         const filteredData = response.rows.filter(item => {
           if (!item.description) return false;
           const desc = item.description.toString().trim();
-          return desc.includes('创建项目');
+          return desc.includes('上传模型');
         });
         
         // 计算总数据量
@@ -297,24 +298,87 @@ export default {
       // 清除错误标志
       this.validparamError = false;
 
-      if (this.form.description === '创建项目') {
-        this.form.description = '模型配置';
+      // 检查是否有必要的参数
+      if (!this.form.createBy || !this.form.updateBy) {
+        this.$message.error("缺少必要的参数：create_by 或 update_by");
+        return;
       }
+
       this.$refs["form"].validate(valid => {
         if (valid) {
+          // 先更新表单数据
           if (this.form.id != null) {
+            if(this.form.description === '上传模型'){
+              this.form.description = '参数配置';
+            }
             updateProject_service_case(this.form).then(response => {
-              this.open = false;
-              this.getList();
+              // 更新成功后，调用运行模型API
+              this.runModel();
+            }).catch(error => {
+              this.$message.error("更新失败：" + error.message);
             });
           } else {
             addProject_service_case(this.form).then(response => {
-              this.open = false;
-              this.getList();
+              // 添加成功后，调用运行模型API
+              this.runModel();
+            }).catch(error => {
+              this.$message.error("添加失败：" + error.message);
             });
           }
         }
       });
+    },
+    
+    /** 运行模型 */
+    runModel() {
+      this.$message.info("正在启动模型运行...");
+      
+      // 构建请求URL
+      const url = `/repa/model/getuploadstatus?subdir=${this.form.createBy}/${this.form.updateBy}`;
+      console.log('运行模型请求URL:', url);
+      
+      // 发送HTTP请求
+      axios.get(url, {
+        timeout: 15000, // 设置超时时间
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
+        .then(response => {
+          console.log('运行模型响应:', response);
+          const result = response.data;
+          
+          // 检查API返回的数据结构
+          if (result && result.code === 200) {
+            this.$message.success("模型启动成功！正在跳转到任务列表...");
+            // 关闭对话框
+            this.open = false;
+            // 跳转到tasklist.vue页面
+            this.$router.push('/project/project_service_case4');
+          } else {
+            this.$message.warning("模型启动失败：" + (result.message || '未知错误'));
+          }
+        })
+        .catch(error => {
+          console.error('运行模型失败:', error);
+          console.error('错误详情:', {
+            message: error.message,
+            status: error.response?.status,
+            statusText: error.response?.statusText,
+            data: error.response?.data,
+            config: error.config
+          });
+          
+          if (error.response?.status === 404) {
+            this.$message.error("运行模型失败：API接口不存在 (404)，请检查服务器地址和路径是否正确");
+          } else if (error.code === 'ECONNABORTED') {
+            this.$message.error("运行模型失败：请求超时，请检查网络连接");
+          } else if (error.message === 'Network Error') {
+            this.$message.error("运行模型失败：网络连接错误，请检查网络连接");
+          } else {
+            this.$message.error("运行模型失败：" + (error.message || '网络错误'));
+          }
+        });
     },
     /** 删除按钮操作 */
     handleDelete(row) {
