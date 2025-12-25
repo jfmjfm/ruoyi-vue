@@ -1,8 +1,8 @@
 <template>
   <div class="app-container home">
-    <el-row :gutter="20">
-      <el-col :sm="24" :lg="24" style="padding-left: 20px">
-        <el-row>
+    <el-row :gutter="20" style="width: 100%;">
+      <el-col :sm="24" :lg="24" style="padding-left: 20px; width: 100%;">
+        <el-row style="width: 100%;">
             <h3 class="section-title">物理模型概述</h3>
         <el-row :gutter="20">
           <el-col :span="3">
@@ -61,7 +61,7 @@
     </el-row>
     
     <!-- 添加开始使用按钮 -->
-    <divider/>
+    <el-divider></el-divider>
 
     <el-row style="margin-top: 20px; margin-bottom: 20px;">
       <el-col :span="24" style="text-align: center;">
@@ -74,6 +74,7 @@
 <script>
 export default {
   name: "Index",
+  // mounted 钩子不再需要，因为滚动条现在由 app-main 容器自动处理
   data() {
     return {
       // 版本号
@@ -189,6 +190,12 @@ export default {
 
 <style scoped lang="scss">
 .home {
+  // 确保容器可以完整显示所有内容
+  min-height: 100%;
+  height: auto !important; // 强制高度自动适应内容
+  overflow: visible; // 改为 visible，让 app-main 处理滚动
+  padding-bottom: 40px; // 底部留出空间
+  
   blockquote {
     padding: 10px 20px;
     margin: 0 0 20px;
@@ -213,7 +220,6 @@ export default {
   font-family: "open sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
   font-size: 13px;
   color: #676a6c;
-  overflow-x: hidden;
 
   ul {
     list-style-type: none;
@@ -329,5 +335,27 @@ export default {
   font-size: 14px;
   font-weight: 500;
   color: #333;
+}
+</style>
+
+<style lang="scss">
+// 全局样式（不带 scoped），确保父容器不限制高度
+.app-container.home {
+  height: auto !important; // 自动高度，根据内容扩展
+  min-height: 100% !important; // 至少占满父容器
+  max-height: none !important; // 移除最大高度限制
+  overflow: visible !important; // 让内容可以完全显示
+  padding: 20px !important; // 添加内边距
+}
+
+// 确保Element UI的行和列不限制高度
+.app-container.home .el-row {
+  height: auto !important;
+  min-height: auto !important;
+}
+
+.app-container.home .el-col {
+  height: auto !important;
+  min-height: auto !important;
 }
 </style>

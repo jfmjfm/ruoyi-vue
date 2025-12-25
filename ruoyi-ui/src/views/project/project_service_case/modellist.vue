@@ -267,7 +267,7 @@ export default {
           const result = response.data;
           
           // 检查API返回的数据结构
-          if (result && result.data === true) {
+          if (result && result.status === true) {
             this.submitButtonEnabled = true; // 启用确定按钮
             this.$message.success("远程查询成功！模型已上传，可以确定操作。");
           } else {

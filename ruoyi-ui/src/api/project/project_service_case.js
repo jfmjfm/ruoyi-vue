@@ -1,4 +1,5 @@
 import request from '@/utils/request'
+import axios from 'axios'
 
 // 查询服务案例列表
 export function listProject_service_case(query) {
@@ -66,6 +67,17 @@ export function getDefaultProject_service_case(region_service_id) {
     params: {
       region_service_id: region_service_id,
       is_default: 1
+    }
+  })
+}
+
+// 获取模型任务状态
+export function getTaskStatus(payload) {
+  // 使用相对路径，通过vue.config.js中的代理转发
+  return axios.post('/repa/task/getstatus', payload, {
+    timeout: 30000,
+    headers: {
+      'Content-Type': 'application/json'
     }
   })
 }

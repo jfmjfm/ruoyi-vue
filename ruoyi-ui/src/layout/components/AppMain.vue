@@ -48,21 +48,26 @@ export default {
   min-height: calc(100vh - 50px);
   width: 100%;
   position: relative;
-  overflow: hidden;
+  overflow-y: auto; // 修改为 auto，允许垂直滚动
+  overflow-x: hidden; // 保持横向隐藏
+  height: calc(100vh - 50px); // 添加固定高度，让滚动条出现在正确的容器上
 }
 
 .fixed-header + .app-main {
   padding-top: 50px;
+  height: calc(100vh - 50px); // 调整高度以适应 fixed header
 }
 
 .hasTagsView {
   .app-main {
     /* 84 = navbar + tags-view = 50 + 34 */
     min-height: calc(100vh - 84px);
+    height: calc(100vh - 84px); // 添加固定高度
   }
 
   .fixed-header + .app-main {
     padding-top: 84px;
+    height: calc(100vh - 84px); // 调整高度
   }
 }
 </style>

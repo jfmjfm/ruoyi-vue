@@ -14,7 +14,7 @@
         <el-button icon="el-icon-refresh" size="mini" @click="resetQuery">重置</el-button>
       </el-form-item>
     </el-form>
-
+<!-- 情景分析页面 -->
     <el-row :gutter="10" class="mb8">
       <el-col :span="1.5">
         <el-button

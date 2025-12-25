@@ -45,12 +45,19 @@ module.exports = {
       },
       // 添加远程API代理 - 简单有效的配置
       '/repa': {
-        target: 'http://172.16.124.1:8686',
+        target: 'http://172.16.124.1:30086',
         changeOrigin: true,
+        secure: false, // 如果是 https 接口，需要配置这个参数
         pathRewrite: {
           '^/repa': '/repa'
         },
-        logLevel: 'debug'
+        logLevel: 'debug',
+        // 添加 CORS 相关配置
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+        }
       }
     },
     disableHostCheck: true

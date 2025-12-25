@@ -55,14 +55,16 @@
     </div>
     
     <!-- 图例面板 - 使用计算属性 -->
-    <div class="legend-panel" v-show="showLegend && activePanelIndex !== null">
+    <div class="legend-panel" v-show="showLegend && activePanelIndex !== null && currentLevels.length > 0">
       <div class="legend-header">{{ activePanelIndex !== null && menuItems[activePanelIndex] ? menuItems[activePanelIndex].fullName : '图例' }}</div>
       <div class="legend-content">
-        <div class="legend-gradient-container">
-          <div class="legend-gradient" :style="legendStyle"></div>
-          <div class="legend-values">
-            <span class="min-value">低</span>
-            <span class="max-value">高</span>
+        <div class="legend-items-container">
+          <div 
+            v-for="(level, index) in currentLevels" 
+            :key="index" 
+            class="legend-item">
+            <div class="legend-color" :style="{ backgroundColor: getLevelColor(index) }"></div>
+            <div class="legend-value">{{ level }}</div>
           </div>
         </div>
       </div>
@@ -86,14 +88,14 @@
           </el-slider>
         </div>
         <div class="controls-row">
-          <div class="year-label start-year">{{ minYear }}</div>
+          <div class="year-label start-year">{{ formattedStartTime }}</div>
           <div class="center-controls">
             <div class="play-button" @click="toggleTimePlay">
               <i :class="isTimePlayActive ? 'el-icon-video-pause' : 'el-icon-video-play'"></i>
             </div>
-            <div class="current-year">{{ currentYear }}</div>
+            <div class="current-year">{{ formattedCurrentTime }}</div>
           </div>
-          <div class="year-label end-year">{{ maxYear }}</div>
+          <div class="year-label end-year">{{ formattedEndTime }}</div>
         </div>
       </div>
     </div>
@@ -1110,6 +1112,10 @@ export default {
       // 当前激活的WMS配置
       activeWMSConfig: null,
       
+      // 当前时间尺度和配置
+      currentTimeUnit: 'yearly',  // 'yearly' 或 'monthly'
+      currentTimeConfig: null,     // 当前尺度的配置对象
+      
       // 添加场景模型变量
       scenario0: 'baseline',
       scenario1: 'baseline',
@@ -1119,6 +1125,9 @@ export default {
       scenario5: 'baseline',
       scenario6: 'baseline',
       scenario7: 'baseline',
+      
+      // 全局错误处理器引用
+      globalErrorHandler: null,
     };
   },
   created() {
@@ -1144,6 +1153,9 @@ export default {
     }
   },
   mounted() {
+    // 添加全局错误处理，防止浏览器扩展错误影响主功能
+    this.setupGlobalErrorHandler();
+    
     this.initMap();
     this.initFullscreenEvents();
     
@@ -1195,6 +1207,12 @@ export default {
     document.removeEventListener('MSFullscreenChange', this.handleFullscreenChange);
     window.removeEventListener('resize', this.handleResize);
     
+    // 移除全局错误处理器
+    if (this.globalErrorHandler) {
+      window.removeEventListener('error', this.globalErrorHandler);
+      this.globalErrorHandler = null;
+    }
+    
     // 销毁地图实例
     if (this.map) {
       // 先移除所有图层以确保它们的资源被释放
@@ -1212,6 +1230,42 @@ export default {
     }
   },
   methods: {
+    // 设置全局错误处理器，防止浏览器扩展错误影响主功能
+    setupGlobalErrorHandler() {
+      this.globalErrorHandler = (event) => {
+        // 检查是否是浏览器扩展相关的错误
+        const message = event.message || '';
+        const filename = event.filename || '';
+        
+        // 常见的浏览器扩展错误特征
+        const isExtensionError = 
+          message.includes('Extension context invalidated') ||
+          message.includes('Extension') ||
+          filename.includes('extension') ||
+          filename.includes('content.js') ||
+          filename.includes('chrome-extension://') ||
+          filename.includes('moz-extension://') ||
+          filename.includes('edge-extension://');
+        
+        if (isExtensionError) {
+          // 阻止错误传播，避免中断主功能
+          event.preventDefault();
+          event.stopPropagation();
+          
+          // 静默记录（不显示给用户，仅在控制台记录）
+          console.warn('[浏览器扩展错误已忽略]', message);
+          
+          return true; // 表示错误已处理
+        }
+        
+        // 其他错误正常传播
+        return false;
+      };
+      
+      // 添加错误监听器
+      window.addEventListener('error', this.globalErrorHandler, true);
+    },
+    
     initMap() {
       // 创建基础图层 - 使用懒加载策略提高初始加载速度
       const baseLayers = [
@@ -1384,34 +1438,34 @@ export default {
           this.serviceTypes = response.rows.map(item => item.serviceType);
           this.regionServices = response.rows;
           
-          // 提取所有 region_service_id
-          const regionServiceIds = response.rows.map(item => {
-            const id = item.id;
-            return typeof id === 'string' ? parseInt(id, 10) : id;
-          });
-          
-          // 获取服务案例
-          this.fetchServiceCases(regionServiceIds);
+          // 直接使用 regionId 获取服务案例（根据 create_by 和 description='参数配置'）
+          this.fetchServiceCases(regionId);
         } else {
           this.$message.warning('获取区域服务类型失败或无服务类型');
+          // 即使获取服务类型失败，也尝试获取服务案例
+          this.fetchServiceCases(regionId);
         }
       }).catch(error => {
         this.$message.error('获取区域服务类型失败');
+        // 即使获取服务类型失败，也尝试获取服务案例
+        this.fetchServiceCases(regionId);
       });
     },
     
-    // 获取服务案例数据（is_default = 1）
-    fetchServiceCases(regionServiceIds) {
-      if (!regionServiceIds || regionServiceIds.length === 0) {
-        this.$message.warning('未找到区域服务');
+    // 获取服务案例数据（根据regionId和description='参数配置'）
+    fetchServiceCases(regionId) {
+      if (!regionId) {
+        this.$message.warning('未提供区域ID，无法加载服务案例');
         this.generateMenuItemsFallback();
         return;
       }
       
-      // 查询所有 project_service_case 记录
+      // 查询 project_service_case 记录
+      // 条件：create_by == regionId 且 description == '参数配置'
       listProject_service_case({
         pageNum: 1,
-        pageSize: 9999
+        pageSize: 9999,
+        _t: new Date().getTime() // 防止缓存
       }).then(response => {
         if (!response || response.code !== 200 || !response.rows) {
           this.$message.error('获取服务案例失败');
@@ -1419,23 +1473,24 @@ export default {
           return;
         }
         
-        // 前端筛选：region_service_id 在列表中 且 is_default = 1
+        // 前端筛选：create_by == regionId 且 description == '参数配置'
         const filteredCases = response.rows.filter(item => {
           // 获取字段值（兼容驼峰和下划线命名）
-          const regionServiceId = item.regionServiceId !== undefined ? item.regionServiceId : item.region_service_id;
-          const isDefault = item.isDefault !== undefined ? item.isDefault : item.is_default;
+          const createBy = item.createBy !== undefined ? item.createBy : item.create_by;
+          const description = item.description || '';
           
-          // 转换为数字进行比较
-          const normalizedId = typeof regionServiceId === 'string' ? parseInt(regionServiceId) : regionServiceId;
-          const normalizedDefault = typeof isDefault === 'string' ? parseInt(isDefault) : isDefault;
+          // 转换为字符串进行比较（确保类型一致）
+          const normalizedCreateBy = String(createBy);
+          const normalizedRegionId = String(regionId);
+          const normalizedDescription = String(description).trim();
           
-          // 条件1: region_service_id 在列表中
-          const inList = regionServiceIds.includes(normalizedId);
+          // 条件1: create_by == regionId
+          const createByMatch = normalizedCreateBy === normalizedRegionId;
           
-          // 条件2: is_default = 1
-          const isDefaultOne = normalizedDefault === 1;
+          // 条件2: description == '参数配置'
+          const descriptionMatch = normalizedDescription === '参数配置';
           
-          return inList && isDefaultOne;
+          return createByMatch && descriptionMatch;
         });
         
         if (filteredCases.length > 0) {
@@ -1445,18 +1500,17 @@ export default {
           if (this.serviceTypeOptions.length > 0) {
             this.generateMenuItems();
           } else {
-            // 延迟等待字典加载
-            setTimeout(() => {
-              if (this.serviceTypeOptions.length > 0) {
-                this.generateMenuItems();
-              }
-            }, 500);
+            // 如果字典未加载，等待字典加载完成
+            this.$nextTick(() => {
+              this.generateMenuItems();
+            });
           }
         } else {
-          this.$message.warning('未找到可用的服务案例（is_default=1）');
+          console.warn('未找到符合条件的服务案例（create_by=' + regionId + ', description=参数配置）');
           this.generateMenuItemsFallback();
         }
       }).catch(error => {
+        console.error('获取服务案例失败:', error);
         this.$message.error('获取服务案例失败');
         this.generateMenuItemsFallback();
       });
@@ -1468,75 +1522,183 @@ export default {
         return null;
       }
       
-      // 移除开头的 @ 符号（如果存在）
-      let cleanDir = caseDir.trim();
-      if (cleanDir.startsWith('@')) {
-        cleanDir = cleanDir.substring(1);
-      }
-      
-      // 使用 ||| 分隔符分割
-      const parts = cleanDir.split('|||');
-      
-      if (parts.length < 2) {
-        // 如果没有配置信息，返回基本的 WMS URL
-        return {
-          wmsUrl: parts[0].trim(),
-          duration: null,
-          units: null,
-          time_start: null,
-          time_end: null
-        };
-      }
-      
       try {
-        // 解析第二部分的 JSON 配置
-        const config = JSON.parse(parts[1].trim());
+        // 解析 JSON 格式的 case_dir
+        const data = JSON.parse(caseDir);
         
+        if (!data.url_info) {
+          console.error('case_dir 缺少 url_info 字段');
+          return null;
+        }
+        
+        // 提取基础信息
+        const urlInfo = data.url_info;
+        const scalesInfo = data.scales_info || [];
+        
+        // 返回解析后的配置
         return {
-          wmsUrl: parts[0].trim(),
-          duration: config.duration || null,
-          units: config.units || 'year',
-          time_start: config.time_start || null,
-          time_end: config.time_end || null
+          urlInfo: urlInfo,
+          scalesInfo: scalesInfo,
+          baseUrl: urlInfo.base_url,
+          // 为了向后兼容，保留一些字段
+          wmsUrl: urlInfo.base_url,
+          scales: scalesInfo
         };
       } catch (error) {
-        console.error('解析 case_dir 配置失败:', error);
-        return {
-          wmsUrl: parts[0].trim(),
-          duration: null,
-          units: null,
-          time_start: null,
-          time_end: null
-        };
+        console.error('解析 case_dir JSON 失败:', error);
+        return null;
       }
+    },
+    
+    // 检查值是否有效（非空、非null、非undefined）
+    isValidValue(value) {
+      if (value === null || value === undefined) return false;
+      if (typeof value === "string" && value.trim() === "") return false;
+      return true;
+    },
+    
+    // 构建完整的 WMS GetMap URL
+    buildWMSUrl(urlInfo, overrides = {}) {
+      if (!urlInfo || !urlInfo.base_url) {
+        console.error("缺少 base_url 字段");
+        return "";
+      }
+      
+      // 合并覆盖参数
+      const finalUrlInfo = { ...urlInfo, ...overrides };
+      
+      const version = finalUrlInfo.version || "1.3.0";
+      const isWMS130 = version === "1.3.0";
+      const isEPSG4326 = (finalUrlInfo.crs || finalUrlInfo.srs || "").toUpperCase().includes("EPSG:4326");
+      
+      // URL编码键值对
+      const encodeKV = (k, v) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`;
+      
+      // 处理对象类型参数（viewparams, env, dimensions等）
+      const encodeObjectParam = (obj) => {
+        return Object.entries(obj)
+          .filter(([_, v]) => this.isValidValue(v))
+          .map(([k, v]) => `${encodeURIComponent(k)}:${encodeURIComponent(v)}`)
+          .join(";");
+      };
+      
+      // 处理 BBOX 坐标交换（WMS 1.3.0 + EPSG:4326）
+      const processBbox = (bbox) => {
+        if (!isWMS130 || !isEPSG4326) return bbox;
+        
+        const coords = typeof bbox === "string" ? bbox.split(",").map(Number) : bbox;
+        if (coords.length === 4) {
+          // 交换坐标顺序：[minX, minY, maxX, maxY] → [minY, minX, maxY, maxX]
+          return [coords[1], coords[0], coords[3], coords[2]].join(",");
+        }
+        return bbox;
+      };
+      
+      // 构建查询参数
+      const queryParts = [];
+      
+      for (const [key, value] of Object.entries(finalUrlInfo)) {
+        // 跳过 base_url 和无效值
+        if (key === "base_url" || !this.isValidValue(value)) continue;
+        
+        // 对象类型参数
+        if (typeof value === "object" && !Array.isArray(value)) {
+          const encoded = encodeObjectParam(value);
+          if (encoded) queryParts.push(encodeKV(key, encoded));
+        }
+        // BBOX 特殊处理
+        else if (key === "bbox") {
+          queryParts.push(encodeKV(key, processBbox(value)));
+        }
+        // 基本类型参数
+        else if (["string", "number", "boolean"].includes(typeof value)) {
+          queryParts.push(encodeKV(key, value));
+        }
+      }
+      
+      return `${finalUrlInfo.base_url.replace(/\/+$/, '')}?${queryParts.join("&")}`;
+    },
+    
+    // 生成时间序列（根据起始时间、结束时间和时间尺度）
+    generateTimeSequence(startTime, endTime, scale, duration) {
+      const times = [];
+      const start = new Date(startTime);
+      const end = new Date(endTime);
+      
+      for (let i = 0; i < duration; i++) {
+        const current = new Date(start);
+        
+        if (scale === 'daily') {
+          current.setDate(start.getDate() + i);
+        } else if (scale === 'monthly') {
+          current.setMonth(start.getMonth() + i);
+        } else if (scale === 'yearly') {
+          current.setFullYear(start.getFullYear() + i);
+        }
+        
+        if (current <= end) {
+          times.push(current.toISOString().split('T')[0]);
+        }
+      }
+      
+      return times;
     },
     
     // 基于服务案例生成菜单项
     generateMenuItems() {
       const items = [];
+      const processedServiceTypes = new Set(); // 用于去重，避免相同服务类型重复
       
       if (this.serviceCases && this.serviceCases.length > 0) {
         this.serviceCases.forEach((serviceCase, index) => {
           // 兼容多种字段命名
           const caseDir = serviceCase.caseDir || serviceCase.case_dir;
           const caseName = serviceCase.caseName || serviceCase.case_name;
-          const serviceType = serviceCase.serviceType || serviceCase.service_type;
+          
+          // 从 case_name 中解析服务类型
+          // 解析规则：{}-{服务类型}-{}，取第二个部分
+          let serviceTypeName = null;
+          let serviceTypeId = null;
+          
+          if (caseName) {
+            const parts = caseName.split('-');
+            if (parts.length >= 2) {
+              // 取第二个部分作为服务类型名称
+              serviceTypeName = parts[1].trim();
+              
+              // 从字典中查找对应的服务类型ID
+              const dictItem = this.serviceTypeOptions.find(item => 
+                item.dictLabel === serviceTypeName
+              );
+              
+              if (dictItem) {
+                serviceTypeId = dictItem.dictValue;
+              } else {
+                console.warn(`未找到服务类型"${serviceTypeName}"对应的字典项`);
+                // 如果找不到，使用索引作为临时ID
+                serviceTypeId = String(index);
+              }
+            } else {
+              console.warn(`案例名称格式不正确，无法解析服务类型: ${caseName}`);
+              // 如果格式不正确，跳过此案例
+              return;
+            }
+          } else {
+            console.warn('案例名称为空，跳过此案例');
+            return;
+          }
+          
+          // 去重：如果该服务类型已经处理过，跳过
+          if (processedServiceTypes.has(serviceTypeId)) {
+            return;
+          }
+          processedServiceTypes.add(serviceTypeId);
           
           // 解析 case_dir 获取 WMS 配置
           const wmsConfig = this.parseCaseDir(caseDir);
           
-          // 获取服务类型名称
-          let typeName = caseName || '未命名服务';
-          let typeId = serviceType || String(index);
-          
-          // 尝试从字典中获取服务类型信息
-          const dictItem = this.serviceTypeOptions.find(item => String(item.dictValue) === String(typeId));
-          if (dictItem) {
-            typeName = dictItem.dictLabel || typeName;
-          }
-          
           // 创建菜单项
-          const menuItem = this.createMenuItem(typeName, typeId);
+          const menuItem = this.createMenuItem(serviceTypeName, serviceTypeId);
           
           // 附加服务案例的额外信息
           menuItem.caseId = serviceCase.id;
@@ -1708,12 +1870,18 @@ export default {
       if (menuItem && menuItem.wmsConfig) {
         this.activeWMSConfig = menuItem.wmsConfig;
         
-        // 根据时间配置调整时间轴范围
-        this.adjustTimelineByWMSConfig(menuItem.wmsConfig);
+        // 获取当前服务的时间尺度
+        const currentScale = this.getCurrentTimeScale(menuItem.type);
         
-        // 加载初始年的 WMS 图层（内部会调整地图范围到WMS的bbox）
+        console.log(`[菜单切换] 服务类型: ${menuItem.type}, 服务名称: ${menuItem.fullName}`);
+        
+        // 根据时间配置调整时间轴范围
+        this.adjustTimelineByWMSConfig(menuItem.wmsConfig, currentScale);
+        
+        // 加载初始年的 WMS 图层（切换菜单时调整地图范围到WMS的bbox）
         this.$nextTick(() => {
-          this.loadWMSLayer(menuItem.wmsConfig, this.currentYear);
+          console.log(`[菜单切换] 加载初始时间: ${this.currentYear}`);
+          this.loadWMSLayerWithLogging(menuItem.wmsConfig, this.currentYear, true, currentScale);
         });
       }
       
@@ -1725,60 +1893,112 @@ export default {
     },
     
     // 根据 WMS 配置调整时间轴范围
-    adjustTimelineByWMSConfig(wmsConfig) {
+    adjustTimelineByWMSConfig(wmsConfig, currentScale = 'yearly') {
       if (!wmsConfig) return;
       
-      // 解析开始和结束时间
-      if (wmsConfig.time_start && wmsConfig.time_end) {
-        try {
-          const startDate = new Date(wmsConfig.time_start);
-          const endDate = new Date(wmsConfig.time_end);
-          
-          const startYear = startDate.getFullYear();
-          const endYear = endDate.getFullYear();
-          
-          // 更新时间轴范围
-          this.minYear = startYear;
-          this.maxYear = endYear;
-          
-          // 设置当前年为起始年
-          this.currentYear = startYear;
-          
-          // 根据持续时间动态生成时间标记
-          this.generateTimeMarks(startYear, endYear, wmsConfig.duration);
-          
-          console.log(`时间轴已调整: ${startYear} - ${endYear}, 持续时间: ${wmsConfig.duration} ${wmsConfig.units}`);
-        } catch (error) {
-          console.error('解析时间配置失败:', error);
-        }
-      } else if (wmsConfig.duration && wmsConfig.time_start) {
-        // 如果只有起始时间和持续时间
-        try {
-          const startDate = new Date(wmsConfig.time_start);
-          const startYear = startDate.getFullYear();
-          
-          // 根据单位计算结束年份
-          let endYear = startYear;
-          if (wmsConfig.units === 'year') {
-            endYear = startYear + wmsConfig.duration - 1;
-          } else if (wmsConfig.units === 'month') {
-            endYear = startYear + Math.floor(wmsConfig.duration / 12);
+      // 如果有 scalesInfo 数组（新格式），使用对应尺度的配置
+      if (wmsConfig.scalesInfo && wmsConfig.scalesInfo.length > 0) {
+        // 查找对应尺度的配置
+        const scaleConfig = wmsConfig.scalesInfo.find(s => s.scale === currentScale);
+        
+        if (scaleConfig && scaleConfig.time && scaleConfig.time.length >= 2) {
+          try {
+            const startDate = new Date(scaleConfig.time[0]);
+            const endDate = new Date(scaleConfig.time[1]);
+            
+            // 保存当前时间尺度配置
+            this.currentTimeUnit = scaleConfig.scale;
+            this.currentTimeConfig = {
+              ...scaleConfig,
+              startDate: startDate,
+              endDate: endDate,
+              startYear: startDate.getFullYear(),
+              startMonth: startDate.getMonth()
+            };
+            
+            // 根据 scale 设置时间轴
+            if (scaleConfig.scale === 'yearly') {
+              // 年尺度：minYear/maxYear 表示实际年份
+              const startYear = startDate.getFullYear();
+              const endYear = startYear + scaleConfig.duration - 1;
+              
+              this.minYear = startYear;
+              this.maxYear = endYear;
+              this.currentYear = startYear;
+              
+              // 生成年尺度的时间标记
+              this.generateTimeMarks(startYear, endYear, scaleConfig.duration);
+              
+              console.log(`时间轴已调整 [年尺度]: ${startYear} - ${endYear}, 共 ${scaleConfig.duration} 年`);
+              console.log(`图层: ${scaleConfig.layers}, 样式: ${scaleConfig.styles}`);
+              console.log(`分级值: [${scaleConfig.levels.join(', ')}]`);
+            } else if (scaleConfig.scale === 'monthly') {
+              // 月尺度：minYear/maxYear 表示月份索引（0到duration-1）
+              this.minYear = 0;
+              this.maxYear = scaleConfig.duration - 1;
+              this.currentYear = 0;
+              
+              // 生成月尺度的时间标记
+              this.generateMonthlyTimeMarks(startDate, scaleConfig.duration);
+              
+              console.log(`时间轴已调整 [月尺度]: ${startDate.toISOString().substr(0,7)} 开始, 共 ${scaleConfig.duration} 个月`);
+              console.log(`图层: ${scaleConfig.layers}, 样式: ${scaleConfig.styles}`);
+              console.log(`分级值: [${scaleConfig.levels.join(', ')}]`);
+            }
+            
+            return;
+          } catch (error) {
+            console.error('解析时间配置失败:', error);
           }
-          
-          this.minYear = startYear;
-          this.maxYear = endYear;
-          this.currentYear = startYear;
-          
-          this.generateTimeMarks(startYear, endYear, wmsConfig.duration);
-          
-          console.log(`时间轴已调整: ${startYear} - ${endYear}, 持续时间: ${wmsConfig.duration} ${wmsConfig.units}`);
-        } catch (error) {
-          console.error('解析时间配置失败:', error);
+        }
+      }
+      
+      // 如果有 scales 数组（旧格式），继续支持
+      if (wmsConfig.scales && wmsConfig.scales.length > 0) {
+        const scaleConfig = wmsConfig.scales.find(s => s.scale === currentScale);
+        
+        if (scaleConfig && scaleConfig.time && scaleConfig.time.length >= 2) {
+          try {
+            const startDate = new Date(scaleConfig.time[0]);
+            
+            this.currentTimeUnit = scaleConfig.scale;
+            this.currentTimeConfig = {
+              ...scaleConfig,
+              startDate: startDate,
+              startYear: startDate.getFullYear(),
+              startMonth: startDate.getMonth()
+            };
+            
+            if (scaleConfig.scale === 'yearly') {
+              const startYear = startDate.getFullYear();
+              const endYear = startYear + scaleConfig.duration - 1;
+              
+              this.minYear = startYear;
+              this.maxYear = endYear;
+              this.currentYear = startYear;
+              
+              this.generateTimeMarks(startYear, endYear, scaleConfig.duration);
+              
+              console.log(`时间轴已调整 [年尺度]: ${startYear} - ${endYear}, 共 ${scaleConfig.duration} 年`);
+            } else if (scaleConfig.scale === 'monthly') {
+              this.minYear = 0;
+              this.maxYear = scaleConfig.duration - 1;
+              this.currentYear = 0;
+              
+              this.generateMonthlyTimeMarks(startDate, scaleConfig.duration);
+              
+              console.log(`时间轴已调整 [月尺度]: ${startDate.toISOString().substr(0,7)} 开始, 共 ${scaleConfig.duration} 个月`);
+            }
+            
+            return;
+          } catch (error) {
+            console.error('解析时间配置失败:', error);
+          }
         }
       }
     },
     
-    // 动态生成时间标记
+    // 动态生成时间标记（年尺度）
     generateTimeMarks(startYear, endYear, duration) {
       const marks = {};
       const range = endYear - startYear;
@@ -1813,17 +2033,51 @@ export default {
       this.timeMarks = marks;
     },
     
+    // 动态生成时间标记（月尺度）
+    generateMonthlyTimeMarks(startDate, totalMonths) {
+      const marks = {};
+      
+      // 根据月数确定标记间隔
+      let interval = 1;
+      if (totalMonths > 60) {
+        interval = 12; // 每年标记一次
+      } else if (totalMonths > 24) {
+        interval = 6;  // 每半年标记一次
+      } else if (totalMonths > 12) {
+        interval = 3;  // 每季度标记一次
+      }
+      
+      // 生成标记
+      for (let i = 0; i < totalMonths; i += interval) {
+        const date = new Date(startDate);
+        date.setMonth(date.getMonth() + i);
+        const year = date.getFullYear();
+        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+        marks[String(i)] = `${year}-${month}`;
+      }
+      
+      // 确保包含最后一个月
+      if (!marks[String(totalMonths - 1)]) {
+        const lastDate = new Date(startDate);
+        lastDate.setMonth(lastDate.getMonth() + totalMonths - 1);
+        const year = lastDate.getFullYear();
+        const month = (lastDate.getMonth() + 1).toString().padStart(2, '0');
+        marks[String(totalMonths - 1)] = `${year}-${month}`;
+      }
+      
+      this.timeMarks = marks;
+    },
+    
     // 加载 WMS 图层
-    loadWMSLayer(wmsConfig, year) {
-      if (!wmsConfig || !wmsConfig.wmsUrl) {
+    // adjustView: 是否调整地图视图范围（切换服务时为true，动画播放时为false）
+    // currentScale: 当前时间尺度（'yearly' 或 'monthly'）
+    loadWMSLayer(wmsConfig, yearOrIndex, adjustView = false, currentScale = 'yearly') {
+      if (!wmsConfig) {
         console.warn('无效的 WMS 配置');
         return;
       }
       
       try {
-        // 解析 WMS URL 并更新时间参数
-        const updatedUrl = this.updateWMSUrlWithYear(wmsConfig.wmsUrl, year);
-        
         // 查找或创建 WMS 图层
         if (!this.wmsLayer) {
           console.warn('WMS 图层未初始化，跳过加载');
@@ -1833,72 +2087,144 @@ export default {
         // 首先显示WMS图层
         this.wmsLayer.setVisible(true);
         
-        // 更新 WMS 图层的参数
-        const source = this.wmsLayer.getSource();
-        if (source && source.updateParams) {
-          // 从 URL 中提取参数
-          const urlObj = new URL(updatedUrl);
-          const params = {
-            'FORMAT': 'image/png',
-            'TRANSPARENT': true,
-            'BGCOLOR': '0x000000'  // 背景色透明
+        // 根据新的数据结构构建 URL
+        if (wmsConfig.urlInfo && wmsConfig.scalesInfo) {
+          // 新格式：使用 urlInfo 和 scalesInfo
+          const scaleConfig = wmsConfig.scalesInfo.find(s => s.scale === currentScale);
+          
+          if (!scaleConfig) {
+            console.warn(`未找到 ${currentScale} 尺度配置`);
+            return;
+          }
+          
+          // 生成时间序列
+          const timeSequence = this.generateTimeSequence(
+            scaleConfig.time[0],
+            scaleConfig.time[1],
+            scaleConfig.scale,
+            scaleConfig.duration
+          );
+          
+          // 获取当前帧的时间
+          let currentTime;
+          if (currentScale === 'yearly') {
+            // 年尺度：yearOrIndex 是实际年份，需要计算相对于起始年份的索引
+            const startYear = new Date(scaleConfig.time[0]).getFullYear();
+            const index = yearOrIndex - startYear;
+            currentTime = timeSequence[index] || scaleConfig.time[0];
+          } else {
+            // 月尺度：yearOrIndex 已经是索引（0开始）
+            currentTime = timeSequence[yearOrIndex] || scaleConfig.time[0];
+          }
+          
+          // 构建覆盖参数
+          const overrides = {
+            layers: `repa:${scaleConfig.layers}`,
+            styles: `repa:${scaleConfig.styles}`
           };
+          
+          // 更新 viewparams 或 time 参数
+          if (wmsConfig.urlInfo.viewparams && Object.keys(wmsConfig.urlInfo.viewparams).length > 0) {
+            overrides.viewparams = {
+              ...wmsConfig.urlInfo.viewparams,
+              sim_time: currentTime,
+              scale: scaleConfig.scale
+            };
+          } else {
+            overrides.time = currentTime;
+          }
+          
+          // 构建完整 URL
+          const fullUrl = this.buildWMSUrl(wmsConfig.urlInfo, overrides);
+          
+          // 解析 URL 并更新图层参数
+          const urlObj = new URL(fullUrl);
+          const params = {};
           
           // 提取bbox参数用于调整地图范围
           let bboxString = null;
           
-          // 添加URL中的其他参数
+          // 添加URL中的参数
           urlObj.searchParams.forEach((value, key) => {
-            // 跳过service、request等基础参数，只保留业务参数
             const upperKey = key.toUpperCase();
             if (upperKey === 'BBOX') {
               bboxString = value;
             }
-            if (!['SERVICE', 'REQUEST', 'VERSION', 'FORMAT', 'TRANSPARENT', 'BGCOLOR'].includes(upperKey)) {
-              params[key] = value;
-            }
+            params[key] = value;
           });
           
-          // 强制覆盖关键参数确保透明
-          params['FORMAT'] = 'image/png';
-          params['TRANSPARENT'] = true;
-          params['BGCOLOR'] = '0x000000';
-          
           // 更新图层参数
-          source.updateParams(params);
-          
-          // 调整地图视图范围到WMS图层的bbox
-          if (bboxString && this.map) {
-            try {
-              // bbox格式: minx,miny,maxx,maxy
-              const bboxArray = bboxString.split(',').map(coord => parseFloat(coord.trim()));
-              if (bboxArray.length === 4 && bboxArray.every(n => !isNaN(n))) {
-                // OpenLayers的extent格式: [minx, miny, maxx, maxy]
-                const extent = bboxArray;
-                
-                // 使用fit方法调整视图，添加动画效果和padding
-                this.map.getView().fit(extent, {
-                  duration: 1000,  // 动画持续时间1秒
-                  padding: [50, 50, 50, 50],  // 四周留出50像素的边距
-                  maxZoom: 12  // 限制最大缩放级别，避免过度放大
-                });
+          const source = this.wmsLayer.getSource();
+          if (source && source.updateParams) {
+            source.updateParams(params);
+            
+            // 只有在切换服务时才调整地图视图范围到WMS图层的bbox
+            if (adjustView && bboxString && this.map) {
+              try {
+                const bboxArray = bboxString.split(',').map(coord => parseFloat(coord.trim()));
+                if (bboxArray.length === 4 && bboxArray.every(n => !isNaN(n))) {
+                  const extent = bboxArray;
+                  
+                  this.map.getView().fit(extent, {
+                    duration: 1000,
+                    padding: [50, 50, 50, 50],
+                    maxZoom: 12
+                  });
+                }
+              } catch (bboxError) {
+                console.warn('解析bbox失败:', bboxError);
               }
-            } catch (bboxError) {
-              console.warn('解析bbox失败:', bboxError);
             }
+            
+            // 刷新图层
+            this.wmsLayer.changed();
           }
+        } else if (wmsConfig.wmsUrl) {
+          // 旧格式：使用现有的 URL 更新逻辑（向后兼容）
+          const updatedUrl = this.updateWMSUrlWithYearAndScale(wmsConfig.wmsUrl, yearOrIndex, wmsConfig.scales, currentScale);
           
-          // 刷新图层
-          this.wmsLayer.changed();
-        } else {
-          console.warn('无法更新 WMS 图层参数');
+          const source = this.wmsLayer.getSource();
+          if (source && source.updateParams) {
+            const urlObj = new URL(updatedUrl);
+            const params = {};
+            let bboxString = null;
+            
+            urlObj.searchParams.forEach((value, key) => {
+              const upperKey = key.toUpperCase();
+              if (upperKey === 'BBOX') {
+                bboxString = value;
+              }
+              if (!['SERVICE', 'REQUEST', 'VERSION'].includes(upperKey)) {
+                params[key] = value;
+              }
+            });
+            
+            source.updateParams(params);
+            
+            if (adjustView && bboxString && this.map) {
+              try {
+                const bboxArray = bboxString.split(',').map(coord => parseFloat(coord.trim()));
+                if (bboxArray.length === 4 && bboxArray.every(n => !isNaN(n))) {
+                  this.map.getView().fit(bboxArray, {
+                    duration: 1000,
+                    padding: [50, 50, 50, 50],
+                    maxZoom: 12
+                  });
+                }
+              } catch (bboxError) {
+                console.warn('解析bbox失败:', bboxError);
+              }
+            }
+            
+            this.wmsLayer.changed();
+          }
         }
       } catch (error) {
         console.error('加载 WMS 图层失败:', error);
       }
     },
     
-    // 更新 WMS URL 中的年份参数
+    // 更新 WMS URL 中的年份参数（旧方法，保留用于向后兼容）
     updateWMSUrlWithYear(wmsUrl, year) {
       if (!wmsUrl) return wmsUrl;
       
@@ -1932,6 +2258,86 @@ export default {
         
         // 如果没有 viewparams 或解析失败，返回原 URL
         return wmsUrl;
+      } catch (error) {
+        console.error('更新 WMS URL 失败:', error);
+        return wmsUrl;
+      }
+    },
+    
+    // 更新 WMS URL 中的年份、styles 和 scale 参数
+    updateWMSUrlWithYearAndScale(wmsUrl, yearOrIndex, scales, currentScale = 'yearly') {
+      if (!wmsUrl) return wmsUrl;
+      
+      try {
+        const urlObj = new URL(wmsUrl);
+        
+        // 如果有 scales 配置，更新 styles 和 viewparams 中的 scale
+        if (scales && scales.length > 0) {
+          const scaleConfig = scales.find(s => s.scale === currentScale);
+          
+          if (scaleConfig) {
+            // 更新 styles 参数
+            if (scaleConfig.style) {
+              urlObj.searchParams.set('styles', scaleConfig.style);
+            }
+            
+            // 计算实际的日期
+            let targetDate;
+            if (currentScale === 'yearly') {
+              // 年尺度：yearOrIndex 就是实际年份
+              targetDate = `${yearOrIndex}-01-01`;
+            } else if (currentScale === 'monthly' && this.currentTimeConfig) {
+              // 月尺度：yearOrIndex 是月份索引，需要计算实际日期
+              const monthIndex = yearOrIndex;
+              const startDate = this.currentTimeConfig.startDate;
+              const date = new Date(startDate);
+              date.setMonth(date.getMonth() + monthIndex);
+              
+              const year = date.getFullYear();
+              const month = (date.getMonth() + 1).toString().padStart(2, '0');
+              const day = date.getDate().toString().padStart(2, '0');
+              targetDate = `${year}-${month}-${day}`;
+            } else {
+              // 降级处理
+              targetDate = `${yearOrIndex}-01-01`;
+            }
+            
+            // 更新 viewparams 中的 sim_time 和 scale
+            const viewparams = urlObj.searchParams.get('viewparams');
+            if (viewparams) {
+              // 解析现有的 viewparams（格式: sim_time:2009-01-01;scale:yearly）
+              const params = {};
+              viewparams.split(';').forEach(param => {
+                const [key, value] = param.split(':');
+                if (key && value) {
+                  params[key.trim()] = value.trim();
+                }
+              });
+              
+              // 更新 sim_time
+              params['sim_time'] = targetDate;
+              
+              // 更新 scale
+              params['scale'] = currentScale;
+              
+              // 重新组装 viewparams
+              const newViewparams = Object.entries(params)
+                .map(([key, value]) => `${key}:${value}`)
+                .join(';');
+              
+              urlObj.searchParams.set('viewparams', newViewparams);
+            } else {
+              // 如果没有 viewparams，创建新的
+              const newViewparams = `sim_time:${targetDate};scale:${currentScale}`;
+              urlObj.searchParams.set('viewparams', newViewparams);
+            }
+          }
+        } else {
+          // 如果没有 scales 配置，使用旧的方法
+          return this.updateWMSUrlWithYear(wmsUrl, yearOrIndex);
+        }
+        
+        return urlObj.toString();
       } catch (error) {
         console.error('更新 WMS URL 失败:', error);
         return wmsUrl;
@@ -2751,7 +3157,8 @@ export default {
       // 优化变量用于动画
       const animationState = {
         startTimestamp: null,
-        lastStepTime: 0
+        lastStepTime: 0,
+        isFirstFrame: true  // 标记是否为第一帧
       };
       
       // 使用requestAnimationFrame实现更平滑的动画
@@ -2768,22 +3175,30 @@ export default {
         const elapsed = timestamp - animationState.lastStepTime;
         
         // 按指定间隔更新年份
-        if (elapsed >= this.animationSpeed) {
-          // 更新上次步进时间
-          animationState.lastStepTime = timestamp;
-          
-          // 递增年份
-          this.currentYear += this.yearStep;
-          
-          // 触发年份变化事件 - 只在关键帧更新地图
-          this.handleYearChange(this.currentYear);
-          
-          // 如果达到最大年份，则停止动画
-          if (this.currentYear > this.maxYear) {
-            this.currentYear = this.maxYear;
-            this.stopTimeAnimation();
-            this.isTimePlayActive = false;
-            return;
+        if (elapsed >= this.animationSpeed || animationState.isFirstFrame) {
+          // 如果是第一帧，先显示当前帧，不递增
+          if (animationState.isFirstFrame) {
+            animationState.isFirstFrame = false;
+            animationState.lastStepTime = timestamp;
+            // 触发当前年份的显示（第一帧）
+            this.handleYearChange(this.currentYear);
+          } else {
+            // 更新上次步进时间
+            animationState.lastStepTime = timestamp;
+            
+            // 递增年份
+            this.currentYear += this.yearStep;
+            
+            // 如果达到最大年份，则停止动画
+            if (this.currentYear > this.maxYear) {
+              this.currentYear = this.maxYear;
+              this.stopTimeAnimation();
+              this.isTimePlayActive = false;
+              return;
+            }
+            
+            // 触发年份变化事件 - 只在关键帧更新地图
+            this.handleYearChange(this.currentYear);
           }
         }
         
@@ -2830,11 +3245,103 @@ export default {
       const serviceType = menuItem.type;
       if (!serviceType) return;
       
-      console.log(`更新地图数据: 服务类型=${serviceType}, 年份=${year}`);
+      console.log(`更新地图数据: 服务类型=${serviceType}, 年份/索引=${year}`);
       
-      // 如果有 WMS 配置，更新 WMS 图层
-      if (this.activeWMSConfig && this.activeWMSConfig.wmsUrl) {
-        this.loadWMSLayer(this.activeWMSConfig, year);
+      // 如果有 WMS 配置，更新 WMS 图层（动画播放时不调整地图范围）
+      if (this.activeWMSConfig) {
+        // 获取当前服务的时间尺度
+        const currentScale = this.getCurrentTimeScale(serviceType);
+        
+        // 生成并输出完整的 WMS URL
+        this.loadWMSLayerWithLogging(this.activeWMSConfig, year, false, currentScale);
+      }
+    },
+    
+    // 带日志的 WMS 图层加载方法（用于调试）
+    loadWMSLayerWithLogging(wmsConfig, yearOrIndex, adjustView = false, currentScale = 'yearly') {
+      if (!wmsConfig) {
+        console.warn('[WMS] 无效的 WMS 配置');
+        return;
+      }
+      
+      try {
+        // 根据新的数据结构构建 URL
+        if (wmsConfig.urlInfo && wmsConfig.scalesInfo) {
+          // 新格式
+          const scaleConfig = wmsConfig.scalesInfo.find(s => s.scale === currentScale);
+          
+          if (!scaleConfig) {
+            console.warn(`[WMS] 未找到 ${currentScale} 尺度配置`);
+            return;
+          }
+          
+          // 生成时间序列
+          const timeSequence = this.generateTimeSequence(
+            scaleConfig.time[0],
+            scaleConfig.time[1],
+            scaleConfig.scale,
+            scaleConfig.duration
+          );
+          
+          // 获取当前帧的时间
+          let currentTime;
+          let timeIndex; // 用于日志输出
+          if (currentScale === 'yearly') {
+            // 年尺度：yearOrIndex 是实际年份，需要计算相对于起始年份的索引
+            const startYear = new Date(scaleConfig.time[0]).getFullYear();
+            timeIndex = yearOrIndex - startYear;
+            currentTime = timeSequence[timeIndex] || scaleConfig.time[0];
+          } else {
+            // 月尺度：yearOrIndex 已经是索引（0开始）
+            timeIndex = yearOrIndex;
+            currentTime = timeSequence[yearOrIndex] || scaleConfig.time[0];
+          }
+          
+          // 构建覆盖参数
+          const overrides = {
+            layers: `repa:${scaleConfig.layers}`,
+            styles: `repa:${scaleConfig.styles}`
+          };
+          
+          // 更新 viewparams 或 time 参数
+          if (wmsConfig.urlInfo.viewparams && Object.keys(wmsConfig.urlInfo.viewparams).length > 0) {
+            overrides.viewparams = {
+              ...wmsConfig.urlInfo.viewparams,
+              sim_time: currentTime,
+              scale: scaleConfig.scale
+            };
+          } else {
+            overrides.time = currentTime;
+          }
+          
+          // 构建完整 URL
+          const fullUrl = this.buildWMSUrl(wmsConfig.urlInfo, overrides);
+          
+          // 输出详细的 WMS 请求信息
+          console.log(`[WMS] 时间尺度: ${currentScale}`);
+          console.log(`[WMS] 年份/索引输入: ${yearOrIndex}`);
+          console.log(`[WMS] 时间序列索引: ${timeIndex} (共 ${timeSequence.length} 帧)`);
+          console.log(`[WMS] 当前时间: ${currentTime}`);
+          console.log(`[WMS] 图层: ${overrides.layers}`);
+          console.log(`[WMS] 样式: ${overrides.styles}`);
+          console.log(`[WMS] 完整URL: ${fullUrl}`);
+          
+          // 调用实际的加载方法
+          this.loadWMSLayer(wmsConfig, yearOrIndex, adjustView, currentScale);
+          
+        } else if (wmsConfig.wmsUrl) {
+          // 旧格式
+          const updatedUrl = this.updateWMSUrlWithYearAndScale(wmsConfig.wmsUrl, yearOrIndex, wmsConfig.scales, currentScale);
+          
+          console.log(`[WMS] 时间尺度: ${currentScale}`);
+          console.log(`[WMS] 年份/索引: ${yearOrIndex}`);
+          console.log(`[WMS] 完整URL (旧格式): ${updatedUrl}`);
+          
+          // 调用实际的加载方法
+          this.loadWMSLayer(wmsConfig, yearOrIndex, adjustView, currentScale);
+        }
+      } catch (error) {
+        console.error('[WMS] 生成URL失败:', error);
       }
     },
     
@@ -2863,6 +3370,70 @@ export default {
       if (mapContainer) {
         observer.observe(mapContainer);
       }
+    },
+    
+    // 根据索引获取图例颜色
+    getLevelColor(index) {
+      // 10级颜色，从高到低（index 0-9）
+      const colors = [
+        'rgb(103, 0, 31)',      // 深红（最高值）
+        'rgb(178, 24, 43)',     // 红
+        'rgb(214, 96, 77)',     // 橙红
+        'rgb(244, 165, 130)',   // 橙
+        'rgb(253, 219, 199)',   // 浅橙
+        'rgb(209, 229, 240)',   // 浅蓝
+        'rgb(146, 197, 222)',   // 蓝
+        'rgb(67, 147, 195)',    // 深蓝
+        'rgb(33, 102, 172)',    // 更深蓝
+        'rgb(5, 48, 97)'        // 最深蓝（最低值）
+      ];
+      
+      return colors[index] || colors[0];
+    },
+    
+    // 处理时间尺度变化
+    handleTimeScaleChange(serviceType, newScale) {
+      // 只有当前服务面板激活时才处理
+      if (this.activePanelIndex === null || !this.menuItems[this.activePanelIndex]) {
+        return;
+      }
+      
+      const currentMenuItem = this.menuItems[this.activePanelIndex];
+      if (String(currentMenuItem.type) !== String(serviceType)) {
+        return;
+      }
+      
+      // 转换为标准格式（month -> monthly, year -> yearly）
+      const scaleMap = {
+        'month': 'monthly',
+        'year': 'yearly'
+      };
+      const standardScale = scaleMap[newScale] || newScale;
+      
+      console.log(`时间尺度变化: 服务类型=${serviceType}, 新尺度=${standardScale}`);
+      
+      // 如果有WMS配置，重新调整时间轴和加载图层
+      if (this.activeWMSConfig) {
+        // 调整时间轴范围
+        this.adjustTimelineByWMSConfig(this.activeWMSConfig, standardScale);
+        
+        // 重新加载WMS图层（不调整地图范围）
+        this.$nextTick(() => {
+          this.loadWMSLayer(this.activeWMSConfig, this.currentYear, false, standardScale);
+        });
+      }
+    },
+    
+    // 获取当前服务类型的时间尺度
+    getCurrentTimeScale(serviceType) {
+      const scaleMap = {
+        'month': 'monthly',
+        'year': 'yearly'
+      };
+      
+      // 根据服务类型获取对应的 timeScale 变量
+      const timeScaleVar = this[`timeScale${serviceType}`];
+      return scaleMap[timeScaleVar] || 'yearly';
     },
     
     // 下载图表数据方法
@@ -2925,6 +3496,46 @@ export default {
         // 删除这里的所有chart渲染逻辑，不再自动渲染
       }
     },
+    
+    // 监听时间尺度变化 - 水源涵养
+    timeScale0(newVal) {
+      this.handleTimeScaleChange('0', newVal);
+    },
+    
+    // 监听时间尺度变化 - 水源供给
+    timeScale1(newVal) {
+      this.handleTimeScaleChange('1', newVal);
+    },
+    
+    // 监听时间尺度变化 - 土壤保持
+    timeScale2(newVal) {
+      this.handleTimeScaleChange('2', newVal);
+    },
+    
+    // 监听时间尺度变化 - 水质净化
+    timeScale3(newVal) {
+      this.handleTimeScaleChange('3', newVal);
+    },
+    
+    // 监听时间尺度变化 - 防风固沙
+    timeScale4(newVal) {
+      this.handleTimeScaleChange('4', newVal);
+    },
+    
+    // 监听时间尺度变化 - 洪水调蓄
+    timeScale5(newVal) {
+      this.handleTimeScaleChange('5', newVal);
+    },
+    
+    // 监听时间尺度变化 - 固碳服务
+    timeScale6(newVal) {
+      this.handleTimeScaleChange('6', newVal);
+    },
+    
+    // 监听时间尺度变化 - 粮食供给
+    timeScale7(newVal) {
+      this.handleTimeScaleChange('7', newVal);
+    },
   },
   computed: {
     // 添加计算属性以减少模板中的重复计算
@@ -2935,6 +3546,61 @@ export default {
         return this.menuItems[this.activePanelIndex].type;
       }
       return null;
+    },
+    
+    // 获取当前时间尺度的 levels 数组
+    currentLevels() {
+      if (this.currentTimeConfig && this.currentTimeConfig.levels) {
+        // 返回从高到低的 levels（反转数组，因为图例从上到下是从高到低）
+        const levels = [...this.currentTimeConfig.levels].reverse();
+        
+        // 确保返回10个元素，如果不够则用空字符串填充
+        if (levels.length < 10) {
+          return [...levels, ...Array(10 - levels.length).fill('')];
+        }
+        
+        // 如果超过10个，只取前10个
+        return levels.slice(0, 10);
+      }
+      // 默认返回空数组
+      return [];
+    },
+    
+    // 格式化起始时间显示
+    formattedStartTime() {
+      if (this.currentTimeUnit === 'monthly' && this.currentTimeConfig) {
+        const date = this.currentTimeConfig.startDate;
+        const year = date.getFullYear();
+        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+        return `${year}-${month}`;
+      }
+      return this.minYear;
+    },
+    
+    // 格式化当前时间显示
+    formattedCurrentTime() {
+      if (this.currentTimeUnit === 'monthly' && this.currentTimeConfig) {
+        const monthIndex = this.currentYear;
+        const date = new Date(this.currentTimeConfig.startDate);
+        date.setMonth(date.getMonth() + monthIndex);
+        const year = date.getFullYear();
+        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+        return `${year}-${month}`;
+      }
+      return this.currentYear;
+    },
+    
+    // 格式化结束时间显示
+    formattedEndTime() {
+      if (this.currentTimeUnit === 'monthly' && this.currentTimeConfig) {
+        const monthIndex = this.maxYear;
+        const date = new Date(this.currentTimeConfig.startDate);
+        date.setMonth(date.getMonth() + monthIndex);
+        const year = date.getFullYear();
+        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+        return `${year}-${month}`;
+      }
+      return this.maxYear;
     },
     
     // 图例样式计算
@@ -3462,67 +4128,60 @@ export default {
 .legend-panel {
   position: absolute;
   left: 3px;
-  top: calc(12px + 6 * 60px + 50px); /* Increased the spacing from 30px to 50px */
-  width: 50px;
+  top: calc(12px + 6 * 60px + 60px);
+  width: auto; // 自动宽度，根据内容调整
+  min-width: 75px; // 最小宽度
   background: #34495e;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
   border-radius: 4px;
-  padding: 8px 5px;
+  padding: 6px 8px; // 减小内边距
   z-index: 999;
   color: #fff;
 
   .legend-header {
-    font-size: 12px;
+    font-size: 11px;
     font-weight: bold;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
     text-align: center;
     color: #fff;
     border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-    padding-bottom: 5px;
+    padding-bottom: 4px;
+    line-height: 1.2;
   }
 
   .legend-content {
     display: flex;
     flex-direction: column;
-    align-items: center;
 
-    .legend-gradient-container {
+    .legend-items-container {
       display: flex;
       flex-direction: column;
-      align-items: center;
-      width: 100%;
-
-      .legend-gradient {
-        width: 20px;
-        height: 50px;
-        border-radius: 2px;
-        margin-bottom: 3px;
-      }
-
-      .legend-values {
+      gap: 1px; // 减小项目之间的间距
+      
+      .legend-item {
         display: flex;
-        justify-content: space-between;
-        width: 100%;
-        font-size: 8px;
-        color: rgba(255, 255, 255, 0.8);
+        align-items: center;
+        gap: 5px; // 颜色和数值之间保持适中距离
         
-        .min-value {
-          margin-right: auto;
+        .legend-color {
+          width: 18px; // 稍微减小颜色块宽度
+          height: 16px; // 稍微减小颜色块高度
+          border-radius: 2px;
+          border: 1px solid rgba(255, 255, 255, 0.2);
+          flex-shrink: 0;
         }
         
-        .max-value {
-          margin-left: auto;
+        .legend-value {
+          font-size: 10px;
+          color: rgba(255, 255, 255, 0.95);
+          font-weight: 500;
+          text-align: left;
+          white-space: nowrap;
+          line-height: 1.2;
         }
       }
     }
   }
-}
-
-.legend-gradient-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  margin-bottom: 10px;
 }
 
 .time-control-slider {

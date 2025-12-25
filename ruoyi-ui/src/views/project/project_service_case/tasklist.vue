@@ -14,7 +14,7 @@
         <el-button icon="el-icon-refresh" size="mini" @click="resetQuery">重置</el-button>
       </el-form-item>
     </el-form>
-
+<!-- 模型运行状态页面 -->
     <el-table v-loading="loading" :data="project_service_caseList" @selection-change="handleSelectionChange">
       <el-table-column type="selection" width="55" align="center" />
       <el-table-column label="案例名称" align="left" prop="caseName" width="300" />
@@ -22,8 +22,8 @@
         <template slot-scope="scope">
           <div class="progress-container">
             <el-progress 
-              :percentage="getProgressPercentage(scope.row.progress)" 
-              :status="getProgressStatus(scope.row.progress)"
+              :percentage="getProgressPercentage(scope.row)" 
+              :status="getProgressStatus(scope.row)"
               :stroke-width="18"
               :format="format"
             ></el-progress>
@@ -117,7 +117,8 @@
 </template>
 
 <script>
-import { listProject_service_case, getProject_service_case, delProject_service_case, addProject_service_case, updateProject_service_case } from "@/api/project/project_service_case";
+import { listProject_service_case, getProject_service_case, delProject_service_case, addProject_service_case, updateProject_service_case, getTaskStatus } from "@/api/project/project_service_case";
+import { getDicts } from "@/api/system/dict/data";
 
 export default {
   name: "Project_service_case",
@@ -180,17 +181,24 @@ export default {
       // 模型运行日志
       modelLogs: [],
       // 日志轮询定时器
-      logTimer: null
+      logTimer: null,
+      // 状态刷新定时器
+      statusRefreshTimer: null
     };
   },
   created() {
     this.getList();
     this.$message.info("本页面用于追踪计算任务状态");
+    // 启动状态自动刷新（每30秒刷新一次）
+    this.startStatusRefresh();
   },
   beforeDestroy() {
     // 清除定时器
     if (this.logTimer) {
       clearInterval(this.logTimer);
+    }
+    if (this.statusRefreshTimer) {
+      clearInterval(this.statusRefreshTimer);
     }
   },
   methods: {
@@ -203,16 +211,145 @@ export default {
       };
       listProject_service_case(params).then(response => {
         this.project_service_caseList = response.rows;
-        // 为每一行数据添加随机进度
-        this.project_service_caseList.forEach(row => {
-          // 如果没有进度或需要重新生成随机进度
-          if (!row.progress || this.shouldRefreshProgress()) {
-            row.progress = this.generateRandomProgress(row.id);
-          }
-        });
         this.total = response.total;
+        
+        // 为每个案例获取真实的任务状态
+        this.fetchAllTaskStatuses();
+      });
+    },
+    
+    /** 获取所有案例的任务状态 */
+    fetchAllTaskStatuses() {
+      if (!this.project_service_caseList || this.project_service_caseList.length === 0) {
+        this.loading = false;
+        return;
+      }
+      
+      // 使用Promise.all并行获取所有任务状态
+      const statusPromises = this.project_service_caseList.map(row => {
+        return this.fetchTaskStatusForRow(row);
+      });
+      
+      Promise.all(statusPromises).then(() => {
+        this.loading = false;
+      }).catch(error => {
+        console.error('获取任务状态失败:', error);
         this.loading = false;
       });
+    },
+    
+    /** 为单个案例获取任务状态 */
+    fetchTaskStatusForRow(row) {
+      // 检查必要参数
+      if (!row.id || !row.createBy || !row.updateBy) {
+        // 如果缺少必要参数，设置默认状态
+        this.$set(row, 'progress', "参数不完整");
+        this.$set(row, 'taskStatus', "Unknown");
+        this.$set(row, 'taskProgress', 0);
+        return Promise.resolve();
+      }
+      
+      const caseId = row.id;
+      const regionId = parseInt(row.createBy, 10);
+      const serviceType = parseInt(row.updateBy, 10);
+      
+      if (isNaN(regionId) || isNaN(serviceType)) {
+        this.$set(row, 'progress', "参数格式错误");
+        this.$set(row, 'taskStatus', "Unknown");
+        this.$set(row, 'taskProgress', 0);
+        return Promise.resolve();
+      }
+      
+      // 根据服务类型获取模型名称
+      return this.getModelByServiceType(serviceType).then(model => {
+        const payload = {
+          caseId: caseId,
+          model: model,
+          regionId: regionId,
+          serviceType: serviceType
+        };
+        
+        return getTaskStatus(payload).then(response => {
+          // axios返回的数据在response.data中
+          const result = response.data;
+          if (result && result.code === 200 && result.data) {
+            const taskData = result.data;
+            // 更新行的状态信息（使用$set确保Vue响应式更新）
+            this.$set(row, 'taskStatus', taskData.status || "Unknown");
+            this.$set(row, 'taskProgress', taskData.progress || 0);
+            this.$set(row, 'progress', this.formatProgressText(taskData.status, taskData.progress));
+            this.$set(row, 'taskInfo', taskData); // 保存完整任务信息，用于日志显示
+          } else {
+            // API返回失败，设置默认状态
+            this.$set(row, 'progress', result?.message || "获取状态失败");
+            this.$set(row, 'taskStatus', "Unknown");
+            this.$set(row, 'taskProgress', 0);
+          }
+        }).catch(error => {
+          console.error(`获取案例 ${caseId} 的任务状态失败:`, error);
+          // 请求失败，设置默认状态
+          this.$set(row, 'progress', "状态未知");
+          this.$set(row, 'taskStatus', "Unknown");
+          this.$set(row, 'taskProgress', 0);
+        });
+      }).catch(error => {
+        console.error(`获取案例 ${caseId} 的模型名称失败:`, error);
+        this.$set(row, 'progress', "模型名称获取失败");
+        this.$set(row, 'taskStatus', "Unknown");
+        this.$set(row, 'taskProgress', 0);
+      });
+    },
+    
+    /** 根据服务类型获取模型名称 */
+    getModelByServiceType(serviceType) {
+      // serviceType 是数字，需要先查询 sys_service_type 获取中文名字（dict_label）
+      // 然后根据中文名字查询 sys_model_type 获取模型名称（dict_value）
+      return getDicts("sys_service_type").then(response => {
+        const dictDatas = response.data;
+        // 将 serviceType 转换为字符串进行比较（因为字典值可能是字符串）
+        const serviceTypeStr = String(serviceType);
+        const matchedDict = dictDatas.find(dict => String(dict.dictValue) === serviceTypeStr);
+        
+        if (!matchedDict || !matchedDict.dictLabel) {
+          return Promise.reject(new Error(`未找到服务类型 ${serviceType} 对应的字典项`));
+        }
+        
+        // 获取服务类型的中文名字
+        const serviceTypeLabel = matchedDict.dictLabel;
+        
+        // 查询 sys_model_type 字典，根据中文名字查找模型名称
+        return getDicts("sys_model_type").then(modelResponse => {
+          const modelDictDatas = modelResponse.data;
+          const modelDict = modelDictDatas.find(dict => dict.dictLabel === serviceTypeLabel);
+          
+          if (!modelDict || !modelDict.dictValue) {
+            return Promise.reject(new Error(`未找到服务类型"${serviceTypeLabel}"对应的模型名称`));
+          }
+          
+          return modelDict.dictValue;
+        });
+      });
+    },
+    
+    /** 格式化进度文本 */
+    formatProgressText(status, progress) {
+      if (!status) return "状态未知";
+      
+      const progressNum = progress || 0;
+      
+      if (status === "Succeeded" || status === "Completed") {
+        return "计算完成";
+      } else if (status === "Failed" || status === "Error") {
+        return "运行失败";
+      } else if (status === "Running" || status === "InProgress") {
+        return `运行中 (${progressNum}%)`;
+      } else if (status === "Pending" || status === "Waiting") {
+        return "等待运行";
+      } else if (status === "Initializing" || status === "Preparing") {
+        return "初始化中";
+      } else {
+        return `${status} (${progressNum}%)`;
+      }
     },
     // 取消按钮
     cancel() {
@@ -414,12 +551,27 @@ export default {
     },
     /** 查看日志按钮操作 */
     handleViewLogs(row) {
-      this.currentCase = row;
+      // 找到表格中的原始行对象（保持引用，确保更新能同步到表格）
+      const originalRow = this.project_service_caseList.find(r => r.id === row.id) || row;
+      this.currentCase = originalRow; // 使用原始对象的引用
       this.logDialogVisible = true;
       this.modelLogs = [];
       
-      // 模拟获取日志数据 - 实际项目中应该替换为真实的API调用
-      this.fetchModelLogs(row.id);
+      // 如果任务信息不存在或需要刷新，先获取任务状态
+      if (!originalRow.taskInfo || !originalRow.taskStatus) {
+        this.fetchTaskStatusForRow(originalRow).then(() => {
+          // 使用$set确保Vue能检测到变化
+          this.$set(originalRow, 'taskStatus', originalRow.taskStatus);
+          this.$set(originalRow, 'taskProgress', originalRow.taskProgress);
+          this.$set(originalRow, 'progress', originalRow.progress);
+          this.$set(originalRow, 'taskInfo', originalRow.taskInfo);
+          // 更新currentCase引用
+          this.currentCase = originalRow;
+          this.fetchModelLogs(row.id);
+        });
+      } else {
+        this.fetchModelLogs(row.id);
+      }
       
       // 设置定时刷新
       if (this.logTimer) {
@@ -427,7 +579,7 @@ export default {
       }
       
       // 如果任务未完成，则每10秒自动刷新日志
-      if (this.isTaskRunning(row.progress)) {
+      if (this.isTaskRunning(originalRow.progress)) {
         this.logTimer = setInterval(() => {
           this.refreshLogs();
         }, 10000);
@@ -436,66 +588,167 @@ export default {
     
     /** 刷新日志 */
     refreshLogs() {
-      this.fetchModelLogs(this.currentCase.id);
-      
-      // 同时刷新表格数据以更新进度
-      this.getList();
-      
-      // 如果任务已完成，清除定时器
-      if (this.currentCase && !this.isTaskRunning(this.currentCase.progress)) {
-        if (this.logTimer) {
-          clearInterval(this.logTimer);
-          this.logTimer = null;
-        }
+      // 找到表格中的原始行对象
+      const originalRow = this.project_service_caseList.find(r => r.id === this.currentCase.id);
+      if (!originalRow) {
+        return;
       }
+      
+      // 刷新原始行的任务状态
+      this.fetchTaskStatusForRow(originalRow).then(() => {
+        // 使用$set确保Vue能检测到变化并更新视图
+        this.$set(originalRow, 'taskStatus', originalRow.taskStatus);
+        this.$set(originalRow, 'taskProgress', originalRow.taskProgress);
+        this.$set(originalRow, 'progress', originalRow.progress);
+        this.$set(originalRow, 'taskInfo', originalRow.taskInfo);
+        
+        // 更新currentCase引用
+        this.currentCase = originalRow;
+        
+        // 重新获取日志
+        this.fetchModelLogs(originalRow.id);
+        
+        // 如果任务已完成，清除定时器
+        if (originalRow && !this.isTaskRunning(originalRow.progress)) {
+          if (this.logTimer) {
+            clearInterval(this.logTimer);
+            this.logTimer = null;
+          }
+        }
+      });
     },
     
     /** 获取模型日志 */
     fetchModelLogs(caseId) {
-      // 这里应该替换为实际的API调用
-      // 模拟获取日志数据
-      // 实际实现中，应该调用后端API获取日志
-      setTimeout(() => {
-        // 模拟日志数据
-        const progress = this.currentCase.progress || "准备运行";
-        const mockLogs = [
-          `[${new Date().toLocaleString()}] 模型初始化中...`,
-          `[${new Date().toLocaleString()}] 加载参数...`,
-          `[${new Date().toLocaleString()}] 加载数据集...`,
-          `[${new Date().toLocaleString()}] 当前进度: ${progress}`
-        ];
-        
-        // 根据进度添加不同的日志
-        if (progress.includes("运行中")) {
-          mockLogs.push(`[${new Date().toLocaleString()}] 模型计算进行中，请耐心等待...`);
-        } else if (progress.includes("完成")) {
-          mockLogs.push(`[${new Date().toLocaleString()}] 模型计算已完成!`);
-          mockLogs.push(`[${new Date().toLocaleString()}] 结果已保存.`);
-        } else if (progress.includes("错误") || progress.includes("失败")) {
-          mockLogs.push(`[${new Date().toLocaleString()}] 错误: 模型运行异常，请检查参数配置.`);
+      // 从表格中获取原始行对象
+      const row = this.project_service_caseList.find(r => r.id === caseId);
+      
+      if (!row || !row.taskInfo) {
+        // 如果没有任务信息，尝试重新获取（使用表格中的原始行）
+        if (row) {
+          this.fetchTaskStatusForRow(row).then(() => {
+            // 更新currentCase引用
+            this.currentCase = row;
+            this.buildLogsFromTaskInfo();
+          });
+        } else {
+          // 如果找不到行，使用currentCase
+          this.fetchTaskStatusForRow(this.currentCase).then(() => {
+            this.buildLogsFromTaskInfo();
+          });
+        }
+        return;
+      }
+      
+      // 确保currentCase引用的是表格中的原始行
+      this.currentCase = row;
+      this.buildLogsFromTaskInfo();
+    },
+    
+    /** 从任务信息构建日志 */
+    buildLogsFromTaskInfo() {
+      const taskInfo = this.currentCase.taskInfo;
+      const logs = [];
+      
+      if (taskInfo) {
+        if (taskInfo.createdAt) {
+          logs.push(`[${this.formatDateTime(taskInfo.createdAt)}] 任务创建`);
+        }
+        if (taskInfo.startTime) {
+          logs.push(`[${this.formatDateTime(taskInfo.startTime)}] 任务开始运行`);
+        }
+        if (taskInfo.description) {
+          logs.push(`[${this.formatDateTime(taskInfo.updateAt || taskInfo.createdAt)}] ${taskInfo.description}`);
+        }
+        if (taskInfo.status) {
+          logs.push(`[${this.formatDateTime(taskInfo.updateAt || new Date())}] 当前状态: ${taskInfo.status}`);
+        }
+        if (taskInfo.progress !== undefined) {
+          logs.push(`[${this.formatDateTime(taskInfo.updateAt || new Date())}] 当前进度: ${taskInfo.progress}%`);
+        }
+        if (taskInfo.remark) {
+          logs.push(`[${this.formatDateTime(taskInfo.updateAt || new Date())}] 备注: ${taskInfo.remark}`);
+        }
+        if (taskInfo.endTime) {
+          logs.push(`[${this.formatDateTime(taskInfo.endTime)}] 任务${taskInfo.status === 'Succeeded' ? '完成' : '结束'}`);
         }
         
-        this.modelLogs = mockLogs;
-      }, 500);
+        // 根据状态添加额外信息
+        if (taskInfo.status === "Succeeded") {
+          logs.push(`[${this.formatDateTime(taskInfo.updateAt || new Date())}] 模型计算已完成!`);
+          if (taskInfo.saveResult) {
+            logs.push(`[${this.formatDateTime(taskInfo.updateAt || new Date())}] 结果已保存`);
+          }
+        } else if (taskInfo.status === "Failed") {
+          logs.push(`[${this.formatDateTime(taskInfo.updateAt || new Date())}] 错误: 模型运行失败，请检查参数配置`);
+        } else if (taskInfo.status === "Running") {
+          logs.push(`[${this.formatDateTime(taskInfo.updateAt || new Date())}] 模型计算进行中，请耐心等待...`);
+        }
+      } else {
+        logs.push(`[${new Date().toLocaleString()}] 暂无任务信息`);
+      }
+      
+      this.modelLogs = logs.length > 0 ? logs : [`[${new Date().toLocaleString()}] 暂无日志信息`];
+    },
+    
+    /** 格式化日期时间 */
+    formatDateTime(dateTimeStr) {
+      if (!dateTimeStr) return new Date().toLocaleString();
+      try {
+        const date = new Date(dateTimeStr);
+        return date.toLocaleString('zh-CN');
+      } catch (e) {
+        return dateTimeStr;
+      }
     },
     
     /** 获取进度条百分比 */
-    getProgressPercentage(progressText) {
-      if (!progressText) return 0;
+    getProgressPercentage(row) {
+      if (!row) return 0;
       
+      // 优先根据任务状态判断
+      if (row.taskStatus) {
+        // 如果任务成功完成，确保显示100%
+        if (row.taskStatus === "Succeeded" || row.taskStatus === "Completed") {
+          return 100;
+        }
+        // 如果任务失败，也显示100%（表示已完成，但失败）
+        if (row.taskStatus === "Failed" || row.taskStatus === "Error") {
+          return 100;
+        }
+        // 如果任务正在运行，使用taskProgress或默认值
+        if (row.taskStatus === "Running" || row.taskStatus === "InProgress") {
+          if (row.taskProgress !== undefined && row.taskProgress !== null) {
+            return row.taskProgress;
+          }
+          return 50; // 默认值
+        }
+        // 其他状态使用taskProgress
+        if (row.taskProgress !== undefined && row.taskProgress !== null) {
+          return row.taskProgress;
+        }
+      }
+      
+      // 如果没有taskStatus，从taskProgress获取
+      if (row.taskProgress !== undefined && row.taskProgress !== null) {
+        return row.taskProgress;
+      }
+      
+      // 从进度文本中提取百分比
+      const progressText = row.progress || "";
+      const match = progressText.match(/(\d+)%/);
+      if (match && match[1]) {
+        return parseInt(match[1]);
+      }
+      
+      // 根据文本内容判断
       if (progressText.includes("完成")) {
         return 100;
       } else if (progressText.includes("错误") || progressText.includes("失败")) {
         return 100;
       } else if (progressText.includes("运行中")) {
-        // 从进度文本中提取百分比（如果有）
-        const match = progressText.match(/(\d+)%/);
-        if (match && match[1]) {
-          return parseInt(match[1]);
-        }
-        // 如果没有具体百分比，给一个默认值
-        return 50;
-      } else if (progressText.includes("准备")) {
+        return 50; // 默认值
+      } else if (progressText.includes("准备") || progressText.includes("等待")) {
         return 10;
       } else if (progressText.includes("初始化")) {
         return 5;
@@ -505,18 +758,35 @@ export default {
     },
     
     /** 获取进度条状态 */
-    getProgressStatus(progressText) {
-      if (!progressText) return "";
+    getProgressStatus(row) {
+      if (!row) return "";
       
+      // 优先根据taskStatus判断（最准确）
+      if (row.taskStatus) {
+        if (row.taskStatus === "Succeeded" || row.taskStatus === "Completed") {
+          return "success"; // 成功 - 绿色
+        } else if (row.taskStatus === "Failed" || row.taskStatus === "Error") {
+          return "exception"; // 失败 - 红色
+        } else if (row.taskStatus === "Running" || row.taskStatus === "InProgress") {
+          return ""; // 运行中 - 蓝色（默认）
+        } else if (row.taskStatus === "Pending" || row.taskStatus === "Waiting") {
+          return "warning"; // 等待 - 黄色
+        }
+      }
+      
+      // 如果没有taskStatus，从进度文本判断
+      const progressText = row.progress || "";
       if (progressText.includes("完成")) {
         return "success";
       } else if (progressText.includes("错误") || progressText.includes("失败")) {
         return "exception";
       } else if (progressText.includes("运行中")) {
         return "";
+      } else if (progressText.includes("准备") || progressText.includes("等待")) {
+        return "warning";
       }
       
-      return "warning";
+      return "";
     },
     
     /** 格式化进度条文本 */
@@ -545,48 +815,66 @@ export default {
     isTaskRunning(progressText) {
       if (!progressText) return false;
       
+      // 检查任务状态
+      const row = this.project_service_caseList.find(r => r.progress === progressText);
+      if (row && row.taskStatus) {
+        return row.taskStatus === "Running" || 
+               row.taskStatus === "InProgress" || 
+               row.taskStatus === "Pending" || 
+               row.taskStatus === "Waiting" ||
+               row.taskStatus === "Initializing";
+      }
+      
+      // 回退到文本匹配
       return progressText.includes("运行中") || 
              progressText.includes("准备") || 
-             progressText.includes("初始化");
+             progressText.includes("初始化") ||
+             progressText.includes("等待");
     },
     
-    /** 生成随机进度数据 */
-    generateRandomProgress(id) {
-      // 使用id作为种子，同一个案例获得稳定的随机状态
-      const seed = id % 10;
-      
-      // 可能的进度状态
-      const progressStates = [
-        "初始化模型参数...",
-        "准备运行环境...",
-        "运行中 (10%)",
-        "运行中 (25%)",
-        "运行中 (43%)",
-        "运行中 (67%)",
-        "运行中 (89%)",
-        "计算完成",
-        "运行失败: 参数错误",
-        "等待资源分配..."
-      ];
-      
-      // 以30%概率生成完成状态
-      if (seed > 6) {
-        return "计算完成";
-      } 
-      // 以10%概率生成错误状态
-      else if (seed === 0) {
-        return "运行失败: 参数错误";
+    /** 启动状态自动刷新 */
+    startStatusRefresh() {
+      // 清除旧的定时器
+      if (this.statusRefreshTimer) {
+        clearInterval(this.statusRefreshTimer);
       }
-      // 以60%概率生成运行中的状态
-      else {
-        // 根据seed选择一个运行中的状态
-        return progressStates[seed];
-      }
+      
+      // 每30秒刷新一次正在运行的任务状态
+      this.statusRefreshTimer = setInterval(() => {
+        this.refreshRunningTasks();
+      }, 30000); // 30秒
     },
     
-    /** 判断是否需要刷新进度数据 (20%概率更新) */
-    shouldRefreshProgress() {
-      return Math.random() < 0.2;
+    /** 刷新正在运行的任务状态 */
+    refreshRunningTasks() {
+      if (!this.project_service_caseList || this.project_service_caseList.length === 0) {
+        return;
+      }
+      
+      // 只刷新正在运行的任务
+      const runningTasks = this.project_service_caseList.filter(row => {
+        if (!row.taskStatus) return false;
+        return row.taskStatus === "Running" || 
+               row.taskStatus === "InProgress" || 
+               row.taskStatus === "Pending" || 
+               row.taskStatus === "Waiting" ||
+               row.taskStatus === "Initializing";
+      });
+      
+      if (runningTasks.length === 0) {
+        return; // 没有正在运行的任务，不需要刷新
+      }
+      
+      // 并行刷新所有正在运行的任务
+      runningTasks.forEach(row => {
+        this.fetchTaskStatusForRow(row).then(() => {
+          // 使用Vue.set或$set确保响应式更新
+          this.$set(row, 'taskStatus', row.taskStatus);
+          this.$set(row, 'taskProgress', row.taskProgress);
+          this.$set(row, 'progress', row.progress);
+          this.$set(row, 'taskInfo', row.taskInfo);
+        });
+      });
     }
   }
 };

@@ -14,7 +14,7 @@
         <el-button icon="el-icon-refresh" size="mini" @click="resetQuery">重置</el-button>
       </el-form-item>
     </el-form>
-
+<!-- 模型配置页面 -->
     <el-row :gutter="10" class="mb8">
       <el-col :span="1.5">
         <el-button
@@ -157,7 +157,7 @@ export default {
   },
   created() {
     this.getList();
-    this.$message.info("本页面用于检查模型配置文件");
+    //this.$message.info("本页面用于检查模型配置文件");
   },
   methods: {
     /** 查询服务案例列表 */
@@ -329,56 +329,184 @@ export default {
       });
     },
     
+    /** 解析模型参数字符串为数字数组 */
+    parseCommandParams(validparam) {
+      if (!validparam || typeof validparam !== 'string') {
+        return [];
+      }
+      
+      // 去除空格，按逗号分割，转换为数字数组
+      return validparam
+        .split(',')
+        .map(param => param.trim())
+        .filter(param => param !== '')
+        .map(param => parseFloat(param))
+        .filter(param => !isNaN(param));
+    },
+    
+    /** 根据服务类型获取模型名称 */
+    getModelByServiceType(serviceType) {
+      // serviceType 是数字，需要先查询 sys_service_type 获取中文名字（dict_label）
+      // 然后根据中文名字查询 sys_model_type 获取模型名称（dict_value）
+      return getDicts("sys_service_type").then(response => {
+        const dictDatas = response.data;
+        // 将 serviceType 转换为字符串进行比较（因为字典值可能是字符串）
+        const serviceTypeStr = String(serviceType);
+        const matchedDict = dictDatas.find(dict => String(dict.dictValue) === serviceTypeStr);
+        
+        if (!matchedDict || !matchedDict.dictLabel) {
+          return Promise.reject(new Error(`未找到服务类型 ${serviceType} 对应的字典项`));
+        }
+        
+        // 获取服务类型的中文名字
+        const serviceTypeLabel = matchedDict.dictLabel;
+        
+        // 查询 sys_model_type 字典，根据中文名字查找模型名称
+        return getDicts("sys_model_type").then(modelResponse => {
+          const modelDictDatas = modelResponse.data;
+          const modelDict = modelDictDatas.find(dict => dict.dictLabel === serviceTypeLabel);
+          
+          if (!modelDict || !modelDict.dictValue) {
+            return Promise.reject(new Error(`未找到服务类型"${serviceTypeLabel}"对应的模型名称`));
+          }
+          
+          return modelDict.dictValue;
+        });
+      });
+    },
+    
     /** 运行模型 */
     runModel() {
       this.$message.info("正在启动模型运行...");
       
-      // 构建请求URL
-      const url = `/repa/model/getuploadstatus?subdir=${this.form.createBy}/${this.form.updateBy}`;
-      console.log('运行模型请求URL:', url);
+      // 验证必要参数
+      if (!this.form.id) {
+        this.$message.error("缺少案例ID");
+        return;
+      }
       
-      // 发送HTTP请求
-      axios.get(url, {
-        timeout: 15000, // 设置超时时间
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      })
-        .then(response => {
-          console.log('运行模型响应:', response);
-          const result = response.data;
-          
-          // 检查API返回的数据结构
-          if (result && result.code === 200) {
-            this.$message.success("模型启动成功！正在跳转到任务列表...");
-            // 关闭对话框
-            this.open = false;
-            // 跳转到tasklist.vue页面
-            this.$router.push('/project/project_service_case4');
-          } else {
-            this.$message.warning("模型启动失败：" + (result.message || '未知错误'));
+      if (!this.form.validparam || this.form.validparam.trim() === '') {
+        this.$message.error("模型参数不能为空");
+        return;
+      }
+      
+      if (!this.form.createBy) {
+        this.$message.error("缺少区域ID（create_by字段）");
+        return;
+      }
+      
+      if (!this.form.updateBy) {
+        this.$message.error("缺少服务类型（update_by字段）");
+        return;
+      }
+      
+      // 解析模型参数
+      const commandParams = this.parseCommandParams(this.form.validparam);
+      if (commandParams.length === 0) {
+        this.$message.error("模型参数格式错误，无法解析为数字数组");
+        return;
+      }
+      
+      // 直接从表单获取 regionId 和 serviceType
+      const regionId = parseInt(this.form.createBy, 10);
+      const serviceType = parseInt(this.form.updateBy, 10);
+      
+      if (isNaN(regionId)) {
+        this.$message.error("区域ID格式错误");
+        return;
+      }
+      
+      if (isNaN(serviceType)) {
+        this.$message.error("服务类型格式错误");
+        return;
+      }
+      
+      // 根据服务类型获取模型名称
+      this.getModelByServiceType(serviceType).then(model => {
+        // 构建请求体
+        const payload = {
+          caseId: this.form.id,
+          model: model,
+          regionId: regionId,
+          serviceType: serviceType,
+          commandParams: commandParams,
+          isRerun: true,
+          overwrite: true,
+          isPostProc: true
+        };
+        
+        console.log('运行模型请求参数:', payload);
+        
+        // 构建请求URL（使用原生axios，参考之前的调用模式）
+        const url = `/repa/task/run`;
+        // 完整URL（开发环境通过代理，生产环境需要根据实际部署调整）
+        const fullUrl = `http://172.16.124.1:8686/repa/task/run`;
+        console.log('运行模型完整URL:', fullUrl);
+        console.log('运行模型相对路径:', url);
+        
+        // 发送HTTP POST请求
+        axios.post(url, payload, {
+          timeout: 30000, // 设置超时时间为30秒
+          headers: {
+            'Content-Type': 'application/json'
           }
         })
-        .catch(error => {
-          console.error('运行模型失败:', error);
-          console.error('错误详情:', {
-            message: error.message,
-            status: error.response?.status,
-            statusText: error.response?.statusText,
-            data: error.response?.data,
-            config: error.config
+          .then(response => {
+            console.log('运行模型响应:', response);
+            const result = response.data;
+            
+            // 检查API返回的数据结构
+            if (result && result.code === 200) {
+              this.$message.success(result.data || "模型启动成功！正在跳转到任务列表...");
+              // 关闭对话框
+              this.open = false;
+              // 跳转到任务列表页面
+              this.$router.push('/project/project_service_case4');
+            } else {
+              this.$message.warning("模型启动失败：" + (result.message || '未知错误'));
+            }
+          })
+          .catch(error => {
+            console.error('运行模型失败:', error);
+            console.error('错误详情:', {
+              message: error.message,
+              status: error.response?.status,
+              statusText: error.response?.statusText,
+              data: error.response?.data,
+              config: error.config
+            });
+            
+            // 处理 CORS 错误（403 Forbidden + Invalid CORS request）
+            if (error.response?.status === 403) {
+              const isCorsError = error.response?.data === 'Invalid CORS request' || 
+                                  error.message?.includes('CORS') ||
+                                  String(error.response?.data || '').includes('CORS');
+              if (isCorsError) {
+                this.$message.error("运行模型失败：CORS跨域错误 (403)。请确保开发服务器正在运行（npm run serve），并检查 vue.config.js 中的代理配置");
+                console.error('CORS错误提示：');
+                console.error('1. 请确保开发服务器正在运行：npm run serve');
+                console.error('2. 检查 vue.config.js 中 /repa 代理配置是否正确');
+                console.error('3. 检查目标服务器 http://172.16.124.1:8686 是否可访问');
+                console.error('4. 如果问题持续，可能需要重启开发服务器');
+              } else {
+                this.$message.error("运行模型失败：访问被拒绝 (403)");
+              }
+            } else if (error.response?.status === 404) {
+              this.$message.error("运行模型失败：API接口不存在 (404)，请检查服务器地址和路径是否正确");
+            } else if (error.code === 'ECONNABORTED') {
+              this.$message.error("运行模型失败：请求超时，请检查网络连接");
+            } else if (error.message === 'Network Error') {
+              this.$message.error("运行模型失败：网络连接错误，请检查网络连接");
+            } else if (error.response?.data?.message) {
+              this.$message.error("运行模型失败：" + error.response.data.message);
+            } else {
+              this.$message.error("运行模型失败：" + (error.message || '网络错误'));
+            }
           });
-          
-          if (error.response?.status === 404) {
-            this.$message.error("运行模型失败：API接口不存在 (404)，请检查服务器地址和路径是否正确");
-          } else if (error.code === 'ECONNABORTED') {
-            this.$message.error("运行模型失败：请求超时，请检查网络连接");
-          } else if (error.message === 'Network Error') {
-            this.$message.error("运行模型失败：网络连接错误，请检查网络连接");
-          } else {
-            this.$message.error("运行模型失败：" + (error.message || '网络错误'));
-          }
-        });
+      }).catch(error => {
+        console.error('获取模型名称失败:', error);
+        this.$message.error("获取模型名称失败：" + (error.message || '未知错误'));
+      });
     },
     /** 删除按钮操作 */
     handleDelete(row) {

@@ -14,7 +14,7 @@
         <el-button icon="el-icon-refresh" size="mini" @click="resetQuery">重置</el-button>
       </el-form-item>
     </el-form>
-
+<!-- 参数率定页面 -->
     <el-row :gutter="10" class="mb8">
       <el-col :span="1.5">
         <el-button
@@ -121,7 +121,7 @@ export default {
         caseDir: null,
         isDefault: 1,
         validparam: null,
-        description: '模型配置',
+        description: '参数配置',
       },
       // 表单参数
       form: {},

@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"/>
+  <title>WMS 平滑切换请求器（Double-buffer Crossfade）</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+  <style>
+    html,body,#map { height: 100%; margin:0; padding:0; font-family: Arial, Helvetica, sans-serif; }
+    #map { position: absolute; top:0; left:0; right:0; bottom:0; }
+    .controls {
+      position: absolute;
+      left: 10px;
+      top: 10px;
+      z-index: 1000;
+      background: rgba(255,255,255,0.95);
+      padding:12px;
+      border-radius:8px;
+      box-shadow:0 6px 18px rgba(2,6,23,0.08);
+      min-width: 300px;
+      font-size: 13px;
+    }
+    .controls input[type=date], .controls input[type=number] { width: 130px; }
+    .controls label { display:block; margin-bottom:6px; }
+    .controls .row { display:flex; gap:8px; align-items:center; margin-bottom:6px; }
+    .fade-layer { transition: opacity 800ms ease; } /* 可调整时长 */
+    .small { font-size:12px; color:#444; }
+    button { padding:6px 10px; border-radius:6px; border:0; background:#0ea5a4; color:#fff; cursor:pointer; }
+    button.secondary { background:#64748b; }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+
+  <div class="controls" id="controls">
+    <div><strong>WMS 平滑切换请求器</strong></div>
+    <div class="row">
+      <label>起始日期 <input id="start" type="date" value="2009-06-29"></label>
+    </div>
+    <div class="row">
+      <label>步长(天) <input id="step" type="number" value="1" min="1"></label>
+      <label>间隔(秒) <input id="interval" type="number" value="2" step="0.1" min="0.2"></label>
+    </div>
+    <div class="row">
+      <button id="startBtn">开始</button>
+      <button id="stopBtn" class="secondary" disabled>停止</button>
+      <button id="nextBtn" class="secondary">单步</button>
+    </div>
+    <div class="row">
+      <button id="testBtn" class="secondary">生成测试URL</button>
+      <button id="fitBtn" class="secondary">适配数据范围</button>
+    </div>
+    <div class="row small">
+      当前 time: <span id="timeLabel" style="margin-left:8px">—</span>
+    </div>
+    <div class="row small" style="margin-top:6px;">
+      <div>注意：transition 时间应小于间隔；若看不到图请检查 GeoServer / CORS / 内网访问</div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script>
+    /*********** 配置区：修改为你的 GeoServer 信息 ***********/
+    const WMS_URL = "http://172.16.124.1:31490/geoserver/repa/wms";
+    const WMS_LAYERS = "repa:runoff-147-0-vic-295";
+    const WMS_FIXED_PARAMS = {
+      service: "WMS",
+      version: "1.1.0",
+      request: "GetMap",
+      layers: WMS_LAYERS,
+      format: "image/png",        // 使用 PNG 可透明叠加；若 GeoServer 只支持 jpeg 可改回 image/jpeg
+      transparent: true,
+      styles: "",
+      srs: "EPSG:4326",
+      bbox: "115.56400000000001,39.7416,119.614,42.73859999999999",
+      width: 768,
+      height: 568
+    };
+    /**********************************************************/
+
+    // Leaflet 地图初始化
+    const map = L.map('map', { zoomControl: true }).setView([41.2, 117.5], 7);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    // 添加数据边界框的可视化（用于调试）
+    const dataBounds = L.latLngBounds(
+      [39.7416, 115.564],  // 西南角
+      [42.7386, 119.614]   // 东北角
+    );
+    const debugRect = L.rectangle(dataBounds, {
+      // color: 'red',
+      weight: 0,
+      fillOpacity: 0
+    });
+    debugRect.addTo(map);
+    console.log('数据边界框已添加到地图:', dataBounds);
+
+    // 双缓冲图层容器
+    let layers = [null, null];
+    let currentIndex = 0; // 正在显示的 layer 索引（0 或 1）
+
+    // 控件
+    const startInput = document.getElementById('start');
+    const stepInput = document.getElementById('step');
+    const intervalInput = document.getElementById('interval');
+    const startBtn = document.getElementById('startBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const testBtn = document.getElementById('testBtn');
+    const fitBtn = document.getElementById('fitBtn');
+    const timeLabel = document.getElementById('timeLabel');
+
+    let timer = null;
+    let currentDate = parseDateSafe(startInput.value);
+
+    const TRANSITION_MS = 800; // 与 .fade-layer CSS 保持一致（ms）
+    const LOAD_TIMEOUT_MS = 5000; // 新图层加载超时保护
+
+    // 安全地解析 date input 值（若无效则使用今天）
+    function parseDateSafe(v) {
+      if (!v) return new Date();
+      const parts = v.split('-');
+      if (parts.length !== 3) return new Date(v);
+      return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+    }
+    function formatDate(d) {
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
+    }
+
+    // 创建 WMS tileLayer（**不要**在这里访问 DOM）
+    function createWmsLayer(dateStr) {
+      const cb = Date.now();
+      
+      // Leaflet WMS 图层参数 - 简化版本，让 Leaflet 自己构建 URL
+      const wmsOptions = {
+        layers: WMS_LAYERS,
+        format: 'image/png',
+        transparent: true,
+        version: '1.1.0',
+        crs: L.CRS.EPSG4326,  // 使用 Leaflet 的 CRS
+        time: dateStr,
+        _cb: cb  // 缓存破坏参数
+      };
+      
+      console.log('创建 WMS 图层:', {
+        url: WMS_URL,
+        options: wmsOptions,
+        dateStr: dateStr
+      });
+      
+      const layer = L.tileLayer.wms(WMS_URL, wmsOptions);
+      
+      // 添加错误和加载事件监听
+      layer.on('tileerror', function(e) {
+        console.error('瓦片加载错误:', e);
+        console.error('错误的 URL:', e.url);
+      });
+      
+      layer.on('tileload', function(e) {
+        console.log('瓦片加载成功:', e.url);
+      });
+      
+      layer.on('loading', function() {
+        console.log('WMS 图层开始加载');
+      });
+      
+      layer.on('load', function() {
+        console.log('WMS 图层加载完成');
+      });
+      
+      return layer;
+    }
+
+    // 初始化首帧（安全地 add 后再访问 DOM）
+    function initStartFrame() {
+      currentDate = parseDateSafe(startInput.value);
+      const ds = formatDate(currentDate);
+      timeLabel.textContent = ds;
+
+      console.log('初始化首帧，日期:', ds);
+
+      const first = createWmsLayer(ds);
+      layers[currentIndex] = first;
+      first.addTo(map);
+
+      // 在下一帧访问 DOM，确保 Leaflet 创建了容器
+      requestAnimationFrame(() => {
+        const c = first.getContainer();
+        if (c) {
+          console.log('设置初始图层样式');
+          c.classList.add('fade-layer');
+          c.style.transition = `opacity ${TRANSITION_MS}ms ease`;
+          c.style.opacity = 1;
+        } else {
+          console.error('无法获取图层容器');
+        }
+      });
+    }
+
+    // 切换到指定日期（双缓冲、等待 load、淡入、移除旧 layer）
+    function switchToDate(dateObj) {
+      const dateStr = formatDate(dateObj);
+      timeLabel.textContent = dateStr;
+
+      const nextIndex = 1 - currentIndex;
+
+      // 清理 next 位置上可能存在的 layer（防止积累）
+      if (layers[nextIndex]) {
+        try { map.removeLayer(layers[nextIndex]); } catch (e) { /* ignore */ }
+        layers[nextIndex] = null;
+      }
+
+      const nextLayer = createWmsLayer(dateStr);
+      layers[nextIndex] = nextLayer;
+
+      // 添加到地图以触发 DOM 创建与 tiles 加载
+      nextLayer.addTo(map);
+
+      // 在下一帧安全地设置初始样式（opacity 0）
+      requestAnimationFrame(() => {
+        const nc = nextLayer.getContainer();
+        if (nc) {
+          nc.classList.add('fade-layer');
+          nc.style.transition = `opacity ${TRANSITION_MS}ms ease`;
+          nc.style.opacity = 0;
+        }
+      });
+
+      const oldLayer = layers[currentIndex];
+
+      // 当 tiles 全部加载后淡入并移除旧 layer
+      let finished = false;
+      const finishSwitch = () => {
+        if (finished) return;
+        finished = true;
+        // 淡入（如果容器存在）
+        const nc = nextLayer.getContainer();
+        if (nc) {
+          requestAnimationFrame(() => { nc.style.opacity = 1; });
+        }
+        // 移除旧 layer 在 transition 之后
+        setTimeout(() => {
+          if (oldLayer) {
+            try { map.removeLayer(oldLayer); } catch (e) { /* ignore */ }
+            layers[currentIndex] = null;
+          }
+          currentIndex = nextIndex;
+        }, TRANSITION_MS + 20);
+      };
+
+      // 监听 load 事件（当视图内所有 tiles 加载完成时触发）
+      nextLayer.once('load', () => {
+        finishSwitch();
+      });
+
+      // 超时保护：若 load 未触发则强制切换
+      setTimeout(() => {
+        finishSwitch();
+      }, LOAD_TIMEOUT_MS);
+    }
+
+    // 启动自动循环
+    function startAuto() {
+      stopAuto(); // 保险起见先清理
+      // 强制间隔至少大于 transition 的一半，避免闪烁（最好 >= TRANSITION_MS）
+      const ms = Math.max(200, Number(intervalInput.value) * 1000);
+      timer = setInterval(() => {
+        const step = Math.max(1, Number(stepInput.value) || 1);
+        currentDate.setDate(currentDate.getDate() + step);
+        switchToDate(currentDate);
+      }, ms);
+      startBtn.disabled = true;
+      stopBtn.disabled = false;
+      nextBtn.disabled = false;
+    }
+
+    function stopAuto() {
+      if (timer) { clearInterval(timer); timer = null; }
+      startBtn.disabled = false;
+      stopBtn.disabled = true;
+    }
+
+    // 单步推进
+    function singleStep() {
+      const step = Math.max(1, Number(stepInput.value) || 1);
+      currentDate.setDate(currentDate.getDate() + step);
+      switchToDate(currentDate);
+    }
+
+    // 事件绑定
+    startBtn.addEventListener('click', () => {
+      // 从当前起始输入同步日期（以便用户改了 start）
+      currentDate = parseDateSafe(startInput.value);
+      // 立即切换到当前值（避免从旧帧继续）
+      switchToDate(currentDate);
+      startAuto();
+    });
+    stopBtn.addEventListener('click', stopAuto);
+    nextBtn.addEventListener('click', singleStep);
+    
+    // 生成测试 URL
+    testBtn.addEventListener('click', () => {
+      const dateStr = formatDate(currentDate);
+      const params = Object.assign({}, WMS_FIXED_PARAMS, { time: dateStr });
+      const urlParams = new URLSearchParams(params);
+      const testUrl = `${WMS_URL}?${urlParams}`;
+      console.log('测试 URL:', testUrl);
+      alert('测试 URL 已输出到控制台，可复制到浏览器测试');
+    });
+    
+    // 适配到数据范围
+    fitBtn.addEventListener('click', () => {
+      map.fitBounds(dataBounds);
+      console.log('地图已适配到数据范围');
+    });
+
+    // 当用户手动修改起始日期时，仅更新 currentDate，但不自动开始
+    startInput.addEventListener('change', () => {
+      currentDate = parseDateSafe(startInput.value);
+      timeLabel.textContent = formatDate(currentDate);
+    });
+
+    // 页面卸载时清理
+    window.addEventListener('beforeunload', () => {
+      if (timer) clearInterval(timer);
+      try { layers.forEach(l => l && map.removeLayer(l)); } catch (e) {}
+    });
+
+    // 初始化首帧
+    initStartFrame();
+
+    // 可选：若需强制刷新当前帧（例如外部触发），可调用：
+    // layers[currentIndex] && layers[currentIndex].setParams({ time: formatDate(currentDate), _cb:Date.now() });
+  </script>
+</body>
+</html>
